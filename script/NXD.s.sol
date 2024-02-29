@@ -18,8 +18,16 @@ contract NXDScript is Script {
     DBXen public DBXEN = DBXen(0xF5c80c305803280B587F8cabBcCdC4d9BF522AbD);
     IERC20 public constant DXN = IERC20(0x80f0C1c49891dcFDD40b6e0F960F84E6042bcB6F); // DXN token
     DBXenViews public dbxenViews;
-    uint256 public constant INITIAL_NXD_LP_AMOUNT = 10000 ether; // 10000 NXD tokens
+    uint256 public constant NXD_DEV_REWARDS_SUPPLY = 15000 ether; // 15,000 NXD
+    uint256 public constant NXD_INITIAL_LP_SUPPLY = 5000 ether; //  5,000 NXD for initial supply for  NXD/DXN LP creation
+    uint256 public constant INITIAL_NXD_SUPPLY = NXD_DEV_REWARDS_SUPPLY + NXD_INITIAL_LP_SUPPLY; //
     uint256 public constant DXN_DESIRED = 1 ether;
+    uint256 public constant NXD_MAX_REWARDS_SUPPLY = 730000 ether;
+
+    address public constant devRewardsRecepient1 = address(0x1);
+    address public constant devRewardsRecepient2 = address(0x2);
+    address public constant devRewardsRecepient3 = address(0x3);
+
     NXDERC20 public nxd;
     INXDStakingVault public nxdStakingVault;
     string MAINNET_RPC_URL = vm.envString("MAINNET_RPC_URL");
@@ -38,7 +46,7 @@ contract NXDScript is Script {
         Vesting nxdVesting = new Vesting();
 
         NXDProtocol nxdProtocol = new NXDProtocol(
-            INITIAL_NXD_LP_AMOUNT,
+            INITIAL_NXD_SUPPLY,
             address(DBXEN),
             address(dbxenViews),
             address(v3Oracle),
@@ -49,15 +57,19 @@ contract NXDScript is Script {
         nxd = nxdProtocol.nxd();
         nxdStakingVault = INXDStakingVault(address(nxdProtocol.nxdStakingVault()));
         // Whitelist NXD stakers to get ETH rewards
-        nxdStakingVault.add(100, nxd, false, true);
-
-        console.log("NXD Token: ", address(nxd));
 
         // Create LP
         DXN.approve(address(nxdProtocol), DXN_DESIRED);
-        nxd.approve(address(nxdProtocol), INITIAL_NXD_LP_AMOUNT);
-        nxdProtocol.createPool(INITIAL_NXD_LP_AMOUNT, DXN_DESIRED, deployerAddress, block.timestamp);
+        nxd.approve(address(nxdProtocol), NXD_INITIAL_LP_SUPPLY);
+        nxdProtocol.createPool(NXD_INITIAL_LP_SUPPLY, DXN_DESIRED, deployerAddress, block.timestamp);
 
+        nxd.transfer(address(nxdVesting), NXD_DEV_REWARDS_SUPPLY);
+        nxdVesting.setToken(address(nxd));
+        nxdVesting.setVesting(devRewardsRecepient1, 5000 ether);
+        nxdVesting.setVesting(devRewardsRecepient2, 5000 ether);
+        nxdVesting.setVesting(devRewardsRecepient3, 5000 ether);
+
+        console.log("NXD Token: ", address(nxd));
         console.log("DBXen Views Deployed At: ", address(dbxenViews));
         console.log("NXD Protocol Deployed At: ", address(nxdProtocol));
         console.log("NXD Staking Vault Deployed At: ", address(nxdStakingVault));
