@@ -1,0 +1,384 @@
+pragma solidity ^0.8.13;
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "forge-std/console.sol";
+import "./interfaces/IDBXen.sol";
+// import "./v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import "@uniswap/v3-periphery/contracts/SwapRouter.sol";
+import "./interfaces/IV3Oracle.sol";
+
+import "./interfaces/INXDStakingVault.sol";
+import "./V2Oracle.sol";
+import "./NXDERC20.sol";
+import "./NXDStakingVault.sol";
+import "./dbxen/interfaces/IDBXenViews.sol";
+// import "./uniswapv2/interfaces/IUniswapV2Factory.sol";
+
+/**
+ * @dev     Implementation of a fundraiser contract for the NXD Protocol.
+ *          This contract will accept DXN and mint NXD at a rate that decreases linearly over time.
+ *          The Capped Staking Period (CSP) will run for 14 days, starting at a rate of 1 DXN = 1 NXD and ending at a rate of 1 DXN = 0.5 NXD.
+ */
+contract NXDProtocol {
+    error NotInitialized();
+    error PoolAlreadyCreated();
+    error GotNothing();
+    error InvalidAmount();
+    error SendETHFail();
+    error CSPOngoing();
+    error NoAutoReferral();
+    error CSPHasEnded();
+    error ReferralCodeAlreadySet();
+    error InvalidReferralCode();
+    error NoRewards();
+    error NXDMaxSupplyMinted();
+
+    event PoolCreated(uint256 nxdDesired, uint256 dxnDesired);
+    event Deposit(address indexed from, uint256 amount, uint256 amountReceived, uint256 referralCode);
+    event ReferralCodeSet(uint256 referralCode, address indexed user);
+    event ReferralRewardsWithdrawn(address indexed user, uint256 amount);
+
+    IERC20 public constant dxn = IERC20(0x80f0C1c49891dcFDD40b6e0F960F84E6042bcB6F); // DXN token
+
+    IDBXen public dbxen;
+
+    NXDERC20 public nxd;
+
+    NXDStakingVault public nxdStakingVault;
+
+    ISwapRouter public UNISWAP_V3_ROUTER = ISwapRouter(payable(0xE592427A0AEce92De3Edee1F18E0157C05861564));
+
+    IUniswapV2Router02 public UNISWAP_V2_ROUTER = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+
+    address public UNISWAP_V2_FACTORY = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+
+    address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
+    address public constant DXN_WETH_POOL = 0x7F808fD904FFA3eb6A6F259e6965Fb1466A05372;
+
+    address public constant DEADBEEF = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
+
+    uint256 initialRate = 1 ether; // starts 1:1 DXN:NXD (1 DXN = 1 NXD)
+    uint256 finalRate = 0.5 ether; //  ends 1:0.5 DXN:NXD (1 DXN = 0.5 NXD)
+    uint256 public startTime = block.timestamp;
+    uint256 public endTime = startTime + 14 days;
+    // calculated using the following formula = ((initialRate - finalRate) * 1e18) / (endTime - startTime);
+    uint256 public constant decreasePerSecond = 413359788359788359788359788360;
+    mapping(uint256 => address) public referralCodes;
+    mapping(address => uint256) public referredRewards;
+    mapping(address => uint256) public referrerRewards;
+    IDBXenViews public dbxenViews;
+    // TWAP Oracle for DXN/WETH pair
+    IV3Oracle public v3Oracle;
+    // Simple TWAP Oracle for NXD/DXN pair
+    V2Oracle public v2Oracle;
+
+    uint256 public pendingDXNToStake;
+
+    constructor(
+        uint256 initialSupply,
+        address _dbxen,
+        address _dbxenViews,
+        address _v3Oracle,
+        address _governance,
+        address _vesting
+    ) {
+        // dxn = IERC20(_dxn);
+        dbxen = IDBXen(_dbxen);
+        nxd = new NXDERC20(initialSupply, msg.sender, IERC20(dxn), _governance, _vesting); // deployer gets initial supply of NXD to create LP
+
+        nxdStakingVault = new NXDStakingVault(nxd);
+        // NXD is whitelisted for tax when sending and when receiving.
+        nxd.updateTaxWhitelist(address(nxdStakingVault), true, true);
+
+        dbxenViews = IDBXenViews(_dbxenViews);
+        v3Oracle = IV3Oracle(_v3Oracle);
+    }
+
+    /**
+     * @dev     Creates a pool for the NXD/DXN pair and initializes the V2Oracle contract. Reverts if the pool has already been created. This can only be called by deployer of this contract as they are the only ones who have NXD to create the pool.
+     * @param   nxdDesired  NXD desired to add to the pool.
+     * @param   dxnDesired  DXN desired to add to the pool.
+     * @param   to  LP token recipient.
+     * @param   deadline  Deadline for the transaction.
+     */
+    function createPool(uint256 nxdDesired, uint256 dxnDesired, address to, uint256 deadline)
+        external
+        returns (uint256 liquidity)
+    {
+        if (nxdDesired == 0 || dxnDesired == 0) {
+            revert InvalidAmount();
+        }
+        if (address(v2Oracle) != address(0x0)) {
+            revert PoolAlreadyCreated();
+        }
+        nxd.transferFrom(msg.sender, address(this), nxdDesired);
+        dxn.transferFrom(msg.sender, address(this), dxnDesired);
+
+        nxd.approve(address(UNISWAP_V2_ROUTER), nxdDesired);
+        dxn.approve(address(UNISWAP_V2_ROUTER), dxnDesired);
+        // Create a pool for the NXD/DXN pair
+        (,, liquidity) =
+            UNISWAP_V2_ROUTER.addLiquidity(address(nxd), address(dxn), nxdDesired, dxnDesired, 0, 0, to, deadline);
+        // Initialize the V2Oracle contract
+        v2Oracle = new V2Oracle(UNISWAP_V2_FACTORY, address(nxd), address(dxn));
+        // Set the pair and oracle for the NXD contract
+        nxd.setUniswapV2Pair(IUniswapV2Factory(UNISWAP_V2_FACTORY).getPair(address(nxd), address(dxn)));
+        nxd.setV2Oracle(address(v2Oracle));
+        emit PoolCreated(nxdDesired, dxnDesired);
+    }
+
+    /**
+     * @dev Returns the current rate of DXN to NXD.
+     */
+    function currentRate() public view returns (uint256) {
+        uint256 secondsPassed = block.timestamp - startTime;
+        return ((initialRate) - ((secondsPassed * decreasePerSecond)) / 1e18);
+    }
+
+    /**
+     * @dev Returns the amount of DXN that this contract has earned in fees in the DBXen Protocol.
+     */
+    function ourClaimableFees() public view returns (uint256) {
+        return dbxenViews.getUnclaimedFees(address(this));
+    }
+
+    /**
+     * @dev     Returns the referral bonuses for the referrer and the user.
+     * @param   amount  The amount of DXN to deposit.
+     * @return  referrerAmount  referrerAmount The amount of NXD to be minted as a referral bonus for the referrer.
+     * @return  userAmount  userAmount The amount of NXD to be minted as a referral bonus for the user.
+     */
+    function getReferralBonuses(uint256 amount) public pure returns (uint256 referrerAmount, uint256 userAmount) {
+        referrerAmount = (amount * 5000) / 100000;
+        userAmount = (amount * 10000) / 100000;
+    }
+
+    /**
+     * @dev Deposits DXN and mints NXD. If a referral code is provided, the referrer will receive a 5% bonus. The user will receive a 10% bonus. Reverts if the fundraiser has ended or minted NXD exceeds max supply.
+     * @param _amount The amount of DXN to deposit.
+     * @param _referralCode The referral code of the user who referred this user. 0 if no referral.
+     * @param _allowDynamicAmount If true, the amount of DXN to deposit will be adjusted based on whether the max supply of NXD will be exceeded. If false, the amount will not be adjusted and the transaction will revert if the max supply of NXD will be exceeded.
+     */
+    function deposit(uint256 _amount, uint256 _referralCode, bool _allowDynamicAmount) external {
+        if (address(v2Oracle) == address(0x0)) {
+            revert NotInitialized();
+        }
+
+        if (block.timestamp > endTime) {
+            revert CSPHasEnded();
+        }
+        if (_amount == 0) {
+            revert InvalidAmount();
+        }
+        uint256 _currentRate = currentRate();
+        uint256 amountReceived = (_amount * _currentRate) / 1e18;
+        uint256 referrerAmount = 0;
+        uint256 userBonusAmount = 0;
+        address referrer = referralCodes[_referralCode];
+
+        if (referrer == msg.sender) {
+            revert NoAutoReferral();
+        }
+
+        // Check if referral code is valid
+        if (referrer != address(0x0)) {
+            // // 5% referral bonus
+            // // 10% bonus for referred users
+            (referrerAmount, userBonusAmount) = getReferralBonuses(amountReceived);
+        }
+
+        // Check that amounts do not exceed max supply
+        if (nxd.totalSupply() + amountReceived + referrerAmount > nxd.maxSupply()) {
+            // Change the _amount to the amount that can be minted without exceeding max supply
+            uint256 remainingSupply = nxd.maxSupply() - nxd.totalSupply();
+            if (remainingSupply == 0 || !_allowDynamicAmount) {
+                revert NXDMaxSupplyMinted();
+            }
+
+            // amountReceived is maximum amount of NXD before bonuses that the user can mint.
+            // if has referrer then take into consideration 15% bonus (10% for user, 5% for referrer)
+            amountReceived = referrer != address(0x0)
+                ? remainingSupply
+                    - ((((remainingSupply * 1.15 ether - (remainingSupply * 1e18)) * 1e18) / 1.15 ether) / 1e18) // Doing it this way to avoid precision  loss errors
+                : remainingSupply;
+
+            // Get the amount of DXN that needs to be deposited to mint the remaining supply of NXD.
+            _amount = (amountReceived * 1e18) / _currentRate;
+            // Recalculate bonuses
+            (referrerAmount, userBonusAmount) = getReferralBonuses(amountReceived);
+            console.log("_amount: %s", _amount);
+            console.log("amountReceived: %s", amountReceived);
+            console.log("referrerAmount: %s", referrerAmount);
+            console.log("userBonusAmount: %s", userBonusAmount);
+            console.log(
+                "amountReceived+referrerAmount+userBonusAmount: %s", amountReceived + referrerAmount + userBonusAmount
+            );
+        }
+
+        referrerRewards[referrer] += referrerAmount;
+        referredRewards[msg.sender] += userBonusAmount;
+
+        _transferFromAndStake(_amount);
+
+        nxd.mint(msg.sender, amountReceived);
+
+        collectFees();
+        stakeOurDXN();
+
+        emit Deposit(msg.sender, _amount, amountReceived, _referralCode);
+    }
+
+    /**
+     * @dev     Allows users to deposit DXN and stakes it in the DBXen contract. Does not mint NXD. Does not care if CSP has ended.
+     * @param   _amount  The amount of DXN to deposit.
+     */
+    function depositNoMint(uint256 _amount) external {
+        _transferFromAndStake(_amount);
+        emit Deposit(msg.sender, _amount, 0, 0);
+        collectFees();
+        stakeOurDXN();
+    }
+
+    /**
+     * @notice  Internal function that transfers DXN from the sender to this contract and stakes it in the DBXen contract. Used in `deposit` and `depositNoMint` functions.
+     * @param   _amount  The amount of DXN to transfer and stake.
+     */
+    function _transferFromAndStake(uint256 _amount) internal {
+        dxn.transferFrom(msg.sender, address(this), _amount);
+        dxn.approve(address(dbxen), _amount);
+        dbxen.stake(_amount);
+    }
+
+    /**
+     * @dev     Sets the referral code for the sender.
+     * @param   _referralCode  The referral code to set. Must be unique.
+     */
+    function setReferralCode(uint256 _referralCode) external {
+        if (_referralCode == 0) {
+            revert InvalidReferralCode();
+        }
+        if (referralCodes[_referralCode] != address(0x0)) {
+            revert ReferralCodeAlreadySet();
+        }
+        referralCodes[_referralCode] = msg.sender;
+
+        emit ReferralCodeSet(_referralCode, msg.sender);
+    }
+
+    /**
+     * @dev Collects fees from the DBXen contract.
+     * Can be called by anyone.
+     */
+    function collectFees() public {
+        if (ourClaimableFees() > 0) {
+            // Need to check because claimFees() will revert if there are no fees to claim
+            dbxen.claimFees();
+        }
+    }
+
+    /**
+     * @dev     Withdraws referral rewards for the sender. Reverts if there are no rewards to withdraw or if the fundraiser is ongoing. Rewards are minted as NXD.
+     */
+    function withdrawReferralRewards() external {
+        if (block.timestamp < endTime) {
+            revert CSPOngoing();
+        }
+        uint256 amount = referredRewards[msg.sender] + referrerRewards[msg.sender];
+        if (amount == 0) {
+            revert NoRewards();
+        }
+        referrerRewards[msg.sender] = 0;
+        referredRewards[msg.sender] = 0;
+        nxd.mint(msg.sender, amount);
+        emit ReferralRewardsWithdrawn(msg.sender, amount);
+    }
+
+    /**
+     * @dev     Stakes our DXN in the DBXen contract. Can be called by anyone. Having this in the receive() function will cause a ReentrancyGuardReentrantCall error.
+     */
+    function stakeOurDXN() public {
+        uint256 amount = pendingDXNToStake;
+        if (amount > 0) {
+            pendingDXNToStake = 0;
+            dxn.approve(address(dbxen), amount);
+            dbxen.stake(amount);
+        }
+    }
+
+    /**
+     * @dev Receives ETH from DBXen after calling `collectFees` and uses it to buy DXN, stake half of it, and burn the other half.
+     * This is needed to receive ETH from DBXen.claimFees()
+     * ETH rewards earned through the DXN Staking Vault are distributed as followed:
+     * o 40% Buy & Stake DXN
+     * o 10% Buy & Burn DXN
+     * o 40% Buy & Burn NXD
+     * o 10% NXD Staking Vault
+     *
+     */
+    receive() external payable {
+        // Buy DXN with 90% of ETH received. 40% to Buy & Stake DXN + 40% to Buy & Burn NXD + 10% to Buy & Burn DXN
+        uint256 ethToSwapForDXN = (address(this).balance * 9000) / 10000;
+
+        uint256 dxnPriceNow = v3Oracle.getHumanQuote(DXN_WETH_POOL, 0, 1 ether, address(dxn), WETH9);
+        console.log("Before Swap: 1 DXN = %s ETH", dxnPriceNow);
+        uint256 quote = v3Oracle.getHumanQuote(DXN_WETH_POOL, 5 minutes, 1 ether, WETH9, address(dxn));
+        uint256 minOut = (ethToSwapForDXN * quote) / 1e18;
+        // - 3%
+        minOut = (minOut * 9700) / 10000;
+        uint256 dxnAmountReceived = UNISWAP_V3_ROUTER.exactInputSingle{value: ethToSwapForDXN}(
+            ISwapRouter.ExactInputSingleParams(
+                WETH9,
+                address(dxn),
+                10000,
+                address(this),
+                block.timestamp,
+                ethToSwapForDXN,
+                minOut, // TO DO: set min amount out
+                0
+            )
+        );
+
+        // Burn 11/90 of DXN received (= 10% of ETH received)
+        uint256 dxnToBurn = (dxnAmountReceived * 11111111) / 100000000;
+
+        dxn.transfer(DEADBEEF, dxnToBurn);
+
+        // Remaining DXN is divised on Swapping for NXD and Staking.
+        uint256 dxnToSwapForNXD = dxn.balanceOf(address(this)) / 2;
+        console.log("dxnToSwapForNXD = ", dxnToSwapForNXD);
+        if (v2Oracle.canUpdate()) {
+            v2Oracle.update();
+        }
+        // Buy NXD with remaining DXN
+        uint256 amountOutMin = v2Oracle.consult(address(dxn), dxnToSwapForNXD);
+        // - 3%
+        amountOutMin = (amountOutMin * 9700) / 10000;
+        address[] memory path = new address[](2);
+        path[0] = address(dxn);
+        path[1] = address(nxd);
+
+        dxn.approve(address(UNISWAP_V2_ROUTER), dxnToSwapForNXD);
+
+        uint256[] memory amounts = UNISWAP_V2_ROUTER.swapExactTokensForTokens(
+            dxnToSwapForNXD, amountOutMin, path, address(this), block.timestamp
+        );
+        if (amounts[0] == 0) {
+            revert GotNothing();
+        }
+        pendingDXNToStake += dxn.balanceOf(address(this));
+        console.log("pendingDXNToStake after swap", pendingDXNToStake);
+
+        // Burn our NXD
+        nxd.transfer(DEADBEEF, nxd.balanceOf(address(this)));
+
+        console.log("Sending %S ETH to Staking Vault: ", address(this).balance);
+        // Send remaining ETH to the NXD Staking Vault
+        (bool sent,) = address(nxdStakingVault).call{value: address(this).balance}("");
+        if (!sent) {
+            revert SendETHFail();
+        }
+        // nxdStakingVault.addPendingRewards();
+    }
+}

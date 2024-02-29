@@ -1,0 +1,9 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+gas_reports = ["*"]
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config
+solc = "0.8.20"
+# optimizer = true
+# via_ir = true
