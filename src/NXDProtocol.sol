@@ -329,14 +329,7 @@ contract NXDProtocol {
         minOut = (minOut * 9700) / 10000;
         uint256 dxnAmountReceived = UNISWAP_V3_ROUTER.exactInputSingle{value: ethToSwapForDXN}(
             ISwapRouter.ExactInputSingleParams(
-                WETH9,
-                address(dxn),
-                10000,
-                address(this),
-                block.timestamp,
-                ethToSwapForDXN,
-                minOut, // TO DO: set min amount out
-                0
+                WETH9, address(dxn), 10000, address(this), block.timestamp, ethToSwapForDXN, minOut, 0
             )
         );
 
