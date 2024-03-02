@@ -44,6 +44,19 @@ contract NXDTokenTest is NXDShared {
         nxd.updateTaxWhitelist(address(nxdProtocol), false, false);
     }
 
+    function testRevertWhenSetGovernanceUnauthorised() public {
+        vm.expectRevert(NXDERC20.Unauthorized.selector);
+        nxd.setGovernance(address(0x0));
+    }
+
+    function testSetGovernance() public {
+        address newGovernance = address(0x1);
+        address currentGovernance = nxd.governance();
+        vm.prank(currentGovernance);
+        nxd.setGovernance(newGovernance);
+        assertEq(nxd.governance(), newGovernance, "governance should be updated");
+    }
+
     function testAmountsAfterTaxWhenPairRecipient() public {
         uint256 amount = 1000;
 

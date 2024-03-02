@@ -174,6 +174,14 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         _updateTaxWhitelist(account, whenSender, whenRecipient);
     }
 
+    /**
+     * @dev     Sets the governance address. Only callable by the current governance. Can be set to the zero address.
+     * @param   _governance  The address of the new governance.
+     */
+    function setGovernance(address _governance) external onlyGovernance {
+        governance = _governance;
+    }
+
     function _updateTaxWhitelist(address account, bool whenSender, bool whenRecipient) internal {
         isExcludedFromTax[account] = TaxWhitelist(whenSender, whenRecipient);
     }
