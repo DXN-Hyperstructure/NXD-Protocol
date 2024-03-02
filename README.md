@@ -8,7 +8,7 @@ The operating profits are supported by similarly re-buying & staking DXN tokens,
 
 ## Contracts
 
-- [NXDERC20](src/NXDERC20.sol): The NXD ERC20 token contract. This contract is used to create the NXD token and manage the token's supply and transfer functionality. Has a 10% sell tax.
+- [NXDERC20](src/NXDERC20.sol): The NXD ERC20 token contract. This contract is used to create the NXD token and manage the token's supply and transfer functionality. Has a 5% Fee on Transfer.
 
 - [NXDProtocol](src/NXDProtocol.sol): The NXD Protocol contract. This contract is used to manage the Capped Staking Period (CSP) and the deflationary mechanisms of the NXD Protocol.
 
