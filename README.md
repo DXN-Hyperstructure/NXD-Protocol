@@ -1,6 +1,6 @@
 # NXD Protocol
 
-The NXD cryptocurrency is designed to function as a store of value derivative capturing DXN Protocol’s earning capabilities through compounding the yield created by the daily auction participants. The NXD cryptocurrency aims to function as the inverse of DXN providing a deflationary force to DXN’s disinflationary system tokenomics.
+The NXD cryptocurrency is designed to function as a store of value derivative capturing DXN Protocol’s ROI through compounding the yield created by the daily auction participants. The NXD cryptocurrency aims to function as the inverse of DXN providing a deflationary force to DXN’s disinflationary system tokenomics.
 
 In its purest from, NXD Protocol is a compounding staking vault of which the shares are denominated in NXD. These shares are bought and burned from the ETH operational profits derived from staking DXN in the DBXEN Protocol earning yield from its daily auction participants.
 
