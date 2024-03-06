@@ -48,6 +48,16 @@ forge doc
 
 The NXD Protocol uses the Foundry framework for testing. The test are written in solidity and exist is the `test/` folder.
 
+### Important
+
+All tests run on a mainnet ethereum fork network. Make sure to add the following environment variable in your `.env` file:
+
+```bash
+MAINNET_RPC_URL=
+```
+
+### Running the tests
+
 To run the tests, you can use the following command:
 
 ```bash
@@ -74,7 +84,15 @@ forge test --mt <testFunctionName>
 
 ## Deployment
 
-The deployment script lives in `script/NXD.s.sol`. To deploy the contracts, you can use the following command:
+The deployment script lives in `script/NXD.s.sol`.
+
+Make sure to add the following environment variable in your `.env` file:
+
+```bash
+DEPLOYER_PRIVATE_KEY=
+```
+
+To deploy the contracts, you can use the following command:
 
 ```bash
 forge script script/NXD.s.sol --rpc-url <YOUR_RPC_URL> --broadcast -vvvv
