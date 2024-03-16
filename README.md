@@ -10,7 +10,7 @@ The operating profits are supported by similarly re-buying & staking DXN tokens,
 
 - [NXDERC20](src/NXDERC20.sol): The NXD ERC20 token contract. This contract is used to create the NXD token and manage the token's supply and transfer functionality. Has a 5% Fee on Transfer.
 
-- [NXDProtocol](src/NXDProtocol.sol): The NXD Protocol contract. This contract is used to manage the Capped Staking Period (CSP) and the deflationary mechanisms of the NXD Protocol.
+- [NXDProtocol](src/NXDProtocol.sol): The NXD Protocol contract. This contract is used to manage the Limited Mint Phase (LMP) and the deflationary mechanisms of the NXD Protocol.
 
 - [NXDStakingVault](src/NXDStakingVault.sol): The NXD staking contract. This contract is used to stake NXD tokens and earn rewards. The rewards are paid in ETH and are derived from the DXN Protocol's daily auction participants. The rewards are compounded by re-buying and staking DXN tokens.
 
