@@ -311,15 +311,21 @@ contract NXDProtocol {
      * @dev Receives ETH from DBXen after calling `collectFees` and uses it to buy DXN, stake half of it, and burn the other half.
      * This is needed to receive ETH from DBXen.claimFees()
      * ETH rewards earned through the DXN Staking Vault are distributed as followed:
-     * o 40% Buy & Stake DXN
-     * o 10% Buy & Burn DXN
-     * o 40% Buy & Burn NXD
-     * o 10% NXD Staking Vault
+     * • 50% Buy & Burn NXD
+     * • 30% Buy & Stake DXN
+     * • 15% NXD Staking Vault
+     * • 5% Buy & Burn DXN
      *
      */
     receive() external payable {
-        // Buy DXN with 90% of ETH received. 40% to Buy & Stake DXN + 40% to Buy & Burn NXD + 10% to Buy & Burn DXN
-        uint256 ethToSwapForDXN = (address(this).balance * 9000) / 10000;
+        //         DXN Staking Vault
+        // • 50% Buy & Burn NXD
+        // • 30% Buy & Stake DXN
+        // • 15% NXD Staking Vault
+        // • 5% Buy & Burn DXN
+
+        // Buy DXN with 85% of ETH received. 30% to Buy & Stake DXN + 50% to Buy & Burn NXD + 5% to Buy & Burn DXN
+        uint256 ethToSwapForDXN = (address(this).balance * 8500) / 10000;
 
         uint256 dxnPriceNow = v3Oracle.getHumanQuote(DXN_WETH_POOL, 0, 1 ether, address(dxn), WETH9);
         console.log("Before Swap: 1 DXN = %s ETH", dxnPriceNow);
@@ -333,13 +339,13 @@ contract NXDProtocol {
             )
         );
 
-        // Burn 11/90 of DXN received (= 10% of ETH received)
+        // Burn 5/85 of DXN received (= 5% of ETH received)
         uint256 dxnToBurn = (dxnAmountReceived * 11111111) / 100000000;
 
         dxn.transfer(DEADBEEF, dxnToBurn);
 
-        // Remaining DXN is divised on Swapping for NXD and Staking.
-        uint256 dxnToSwapForNXD = dxn.balanceOf(address(this)) / 2;
+        // Sell DXN for NXD. Sell (50/85) % of DXN received. (50% of total ETH received)
+        uint256 dxnToSwapForNXD = (dxnAmountReceived * 58823529) / 100000000;
         console.log("dxnToSwapForNXD = ", dxnToSwapForNXD);
         if (v2Oracle.canUpdate()) {
             v2Oracle.update();

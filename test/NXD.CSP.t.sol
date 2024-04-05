@@ -299,7 +299,7 @@ contract CSP is NXDShared {
 
         // We should have executed our strategy now.
 
-        uint256 ethToSwapForDXN = (expectedUnclaimedFees * 9000) / 10000;
+        uint256 ethToSwapForDXN = (expectedUnclaimedFees * 8500) / 10000;
         uint256 remaining = expectedUnclaimedFees - ethToSwapForDXN;
 
         assertEq(address(nxdStakingVault).balance, remaining, "Remaining ETH should be sent to Staking Vault");
