@@ -405,7 +405,6 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         }
         // Apply tax
         uint256 taxAmount = (amount * SELL_TAX_X100) / 10000;
-        // uint256 taxAmount = (amount * SELL_TAX_X100) / 10000;
         uint256 amountAfterTax = amount - taxAmount;
         return (amountAfterTax, taxAmount);
     }
@@ -464,9 +463,9 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         console.log("NXDERC20: Amount after tax: %s", amountAfterTax);
         console.log("NXDERC20: taxAmount: %s", taxAmount);
         if (taxAmount > 0) {
-            // - 3% Buy and Stake DXN
-            // - 1% LP Add
-            // - 1% NXD Burn
+            // NXD burn - 2.5%
+            // DXN buy and stake - 1.5%
+            // LP add - 1%
 
             _balances[address(this)] += taxAmount;
             address[] memory nxdDXNPath = new address[](2);
@@ -474,7 +473,7 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
             nxdDXNPath[1] = address(dxn);
 
             // Sell NXD, buy DXN and stake
-            uint256 sellNXDAmount = (taxAmount * 7000) / 10000; // 70% of total tax amount which 3% buy and stake DXN + 0.5% buy DXN to add liquidity
+            uint256 sellNXDAmount = (taxAmount * 4000) / 10000; // 40% (2/5) of total tax amount, which is 1.5% buy and stake DXN + 0.5% buy DXN to add liquidity
             _approve(address(this), address(UNISWAP_V2_ROUTER), sellNXDAmount);
             if (v2Oracle.canUpdate()) {
                 v2Oracle.update();
@@ -492,11 +491,12 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
             // We now have DXN, add liquidity to NXD/DXN pair
             uint256 remainingTax = taxAmount - sellNXDAmount; // 30%
-            uint256 burnAmount = (remainingTax * 666666666666666600) / 1e18; // 1% of all tax. 10% of tax amount. 66.66666666666666% of remaining tax
+            uint256 burnAmount = (taxAmount * 5000) / 10000; // 2.5% of all tax. 50% of tax amount
 
             console.log("NXDERC20: remainingTax = ", remainingTax);
             console.log("NXDERC20: burnAmount = ", burnAmount);
-            console.log("NXDERC20: burnAmount / taxAmount = ", (burnAmount * 1e18) / taxAmount);
+            console.log("NXDERC20: Expected NXD amount to add to liq= ", remainingTax - burnAmount);
+            // console.log("NXDERC20: burnAmount / taxAmount = ", (burnAmount * 1e18) / taxAmount);
 
             _balances[address(this)] -= remainingTax;
 

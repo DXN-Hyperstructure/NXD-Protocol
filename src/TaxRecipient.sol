@@ -35,7 +35,7 @@ contract TaxRecipient {
             revert OnlyNXD();
         }
         uint256 ourDXNBalance = dxn.balanceOf(address(this));
-        uint256 ratio = 857142857142857100; // (3*1e18 /3.5) DXN received from selling NXD
+        uint256 ratio = 750000000000000000; // Stake 1.5% of all tax (1.5*1e18 /2) DXN received from selling NXD
         uint256 dxnToStake = (ourDXNBalance * ratio) / 1e18;
         // Stake 8% of total tax after swap to DXN
         dxn.approve(protocol, dxnToStake);
