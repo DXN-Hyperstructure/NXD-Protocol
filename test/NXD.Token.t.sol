@@ -140,6 +140,9 @@ contract NXDTokenTest is NXDShared {
         assertEq(nxd.balanceOf(pairAddress), 0, "pair balance should be 0 after lp removal");
     }
 
+    uint256 devFeeBalanceBefore;
+    uint256 expectedDevFeeAmount;
+
     function testSellNXD() public {
         uint256 amount = 1000 ether;
         uint256 expectedTaxAmount = (amount * nxd.SELL_TAX_X100()) / 10000;
@@ -160,6 +163,8 @@ contract NXDTokenTest is NXDShared {
         // We now have NXD
         uint256 bobDXNBalanceBeforeSwap = dxn.balanceOf(address(bob));
 
+        devFeeBalanceBefore = nxd.balanceOf(devFeeTo);
+        expectedDevFeeAmount = (expectedTaxAmount * 1000) / 10000;
         // Simulate tax behavior: swap and add liquidity
         uint256 sellNXDAmount = (expectedTaxAmount * 4000) / 10000; // 40% (2/5) of total tax amount, which is 1.5% buy and stake DXN + 0.5% buy DXN to add liq
         // tax sellNXDAmount
@@ -176,13 +181,13 @@ contract NXDTokenTest is NXDShared {
         {
             uint256 remainingTax = expectedTaxAmount - sellNXDAmount; // 30%
             console.log("testSellNXD: remainingTax = ", remainingTax);
-            uint256 burnAmount = (expectedTaxAmount * 5000) / 10000;
+            uint256 burnAmount = (expectedTaxAmount * 4000) / 10000;
             console.log("testSellNXD: burnAmount = ", burnAmount);
             uint256 rate = (resNXD * 1e18) / resDXN;
-            uint256 expectedDXNAmountToAddLiquidity = ((remainingTax - burnAmount) * 1e18) / rate;
-            console.log("testSellNXD: expected to add NXD liq = ", remainingTax - burnAmount);
+            uint256 expectedDXNAmountToAddLiquidity = ((remainingTax - burnAmount - expectedDevFeeAmount) * 1e18) / rate;
+            console.log("testSellNXD: expected to add NXD liq = ", remainingTax - burnAmount - expectedDevFeeAmount);
             console.log("testSellNXD: expectedDXNAmountToAddLiquidity = ", expectedDXNAmountToAddLiquidity);
-            resNXD += remainingTax - burnAmount;
+            resNXD += remainingTax - burnAmount - expectedDevFeeAmount;
             resDXN += expectedDXNAmountToAddLiquidity;
         }
         console.log("testSellNXD: resNXD after add liquidity test = ", resNXD);
@@ -201,6 +206,11 @@ contract NXDTokenTest is NXDShared {
             dxn.balanceOf(address(bob)),
             bobDXNBalanceBeforeSwap + expectedSwapOutput,
             "Bob DXN balance should increase by expected Amount"
+        );
+        assertEq(
+            nxd.balanceOf(devFeeTo) - devFeeBalanceBefore,
+            expectedDevFeeAmount,
+            "Dev fee to should increase by expected amount"
         );
     }
 
@@ -227,6 +237,8 @@ contract NXDTokenTest is NXDShared {
         uint256 bobNXDBalanceBefore = nxd.balanceOf(bob);
         uint256 bobDXNBalanceBeforeSwap = dxn.balanceOf(address(bob));
         vm.assume(amount <= bobDXNBalanceBeforeSwap);
+        devFeeBalanceBefore = nxd.balanceOf(devFeeTo);
+        expectedDevFeeAmount = (expectedTaxAmount * 1000) / 10000;
 
         // Simulate tax behavior: swap and add liquidity. This modifies the pool reserves
         uint256 sellNXDAmount = (expectedTaxAmount * 4000) / 10000; // 70%
@@ -238,15 +250,15 @@ contract NXDTokenTest is NXDShared {
             resNXD += sellNXDAmount;
             resDXN -= dxnOutFromTaxSwap;
             uint256 remainingTax = expectedTaxAmount - sellNXDAmount; // 15%
-            uint256 burnAmount = (expectedTaxAmount * 5000) / 10000;
+            uint256 burnAmount = (expectedTaxAmount * 4000) / 10000;
             uint256 expectedDXNAmountToAddLiquidity =
-                UNISWAP_V2_ROUTER.quote((remainingTax - burnAmount), resNXD, resDXN);
+                UNISWAP_V2_ROUTER.quote((remainingTax - burnAmount - expectedDevFeeAmount), resNXD, resDXN);
             expectedDXNAmountToAddLiquidity = expectedDXNAmountToAddLiquidity >= remainingDXNBalance
                 ? remainingDXNBalance
                 : expectedDXNAmountToAddLiquidity;
             resNXD += expectedDXNAmountToAddLiquidity == remainingDXNBalance
                 ? UNISWAP_V2_ROUTER.quote(expectedDXNAmountToAddLiquidity, resDXN, resNXD)
-                : remainingTax - burnAmount;
+                : remainingTax - burnAmount - expectedDevFeeAmount;
             resDXN += expectedDXNAmountToAddLiquidity;
         }
 
@@ -263,6 +275,11 @@ contract NXDTokenTest is NXDShared {
             "Bob DXN balance should increase by expected Amount"
         );
         assertEq(nxd.balanceOf(address(bob)), bobNXDBalanceBefore - amount, "Bob NXD balance should decrease by amount");
+        assertEq(
+            nxd.balanceOf(devFeeTo) - devFeeBalanceBefore,
+            expectedDevFeeAmount,
+            "Dev fee to should increase by expected amount"
+        );
     }
 
     function testBuyNXD() public {
@@ -451,9 +468,9 @@ contract NXDTokenTest is NXDShared {
         vm.prank(bob);
         nxd.removePairTokens(address(roguePair));
 
-        uint256 sellNXDAmount = (taxAmount * 7000) / 10000; // 85% (80% to buy and stake DXN, 5% to buy DXN and add liquidity to NXD/DXN pair)
+        uint256 sellNXDAmount = (taxAmount * 4000) / 10000; // 85% (80% to buy and stake DXN, 5% to buy DXN and add liquidity to NXD/DXN pair)
         uint256 remainingTax = taxAmount - sellNXDAmount; // 15%
-        uint256 burnAmount = (taxAmount * 5000) / 10000; // 1% of all tax. 10% of tax amount. 66.66666666666666% of remaining tax
+        uint256 burnAmount = (taxAmount * 4000) / 10000; // 1% of all tax. 10% of tax amount. 66.66666666666666% of remaining tax
 
         assertEq(
             nxd.balanceOf(address(DEADBEEF)),

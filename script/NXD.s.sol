@@ -40,6 +40,8 @@ contract NXDScript is Script {
         vm.label(address(DXN), "DXN");
         address deployerAddress = vm.addr(deployerPrivateKey);
 
+        address devFeeTo = address(0x1);
+
         V3Oracle v3Oracle = new V3Oracle();
         dbxenViews = new DBXenViews(DBXEN);
 
@@ -51,7 +53,8 @@ contract NXDScript is Script {
             address(dbxenViews),
             address(v3Oracle),
             deployerAddress,
-            address(nxdVesting)
+            address(nxdVesting),
+            devFeeTo
         );
 
         nxd = nxdProtocol.nxd();

@@ -80,6 +80,8 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
     uint256 public lastSupplyOfDXNInPair;
     address public governance;
 
+    address public devFeeTo;
+
     modifier onlyGovernance() {
         if (msg.sender != governance) {
             revert Unauthorized();
@@ -91,11 +93,19 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
      * Sets the owner address.
      * Called from within the DBXen.sol constructor.
      */
-    constructor(uint256 _initialSupply, address _initialSupplyTo, IERC20 _dxn, address _governance, address _vesting) {
+    constructor(
+        uint256 _initialSupply,
+        address _initialSupplyTo,
+        IERC20 _dxn,
+        address _governance,
+        address _vesting,
+        address _devFeeTo
+    ) {
         _name = "NXD Token";
         _symbol = "NXD";
 
         protocol = msg.sender;
+        devFeeTo = _devFeeTo;
 
         _mint(_initialSupplyTo, _initialSupply);
 
@@ -463,10 +473,10 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         console.log("NXDERC20: Amount after tax: %s", amountAfterTax);
         console.log("NXDERC20: taxAmount: %s", taxAmount);
         if (taxAmount > 0) {
-            // NXD burn - 2.5%
+            // NXD burn - 2.0%
             // DXN buy and stake - 1.5%
             // LP add - 1%
-
+            // Dev Fee - 0.5%
             _balances[address(this)] += taxAmount;
             address[] memory nxdDXNPath = new address[](2);
             nxdDXNPath[0] = address(this);
@@ -491,7 +501,8 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
             // We now have DXN, add liquidity to NXD/DXN pair
             uint256 remainingTax = taxAmount - sellNXDAmount; // 30%
-            uint256 burnAmount = (taxAmount * 5000) / 10000; // 2.5% of all tax. 50% of tax amount
+            uint256 burnAmount = (taxAmount * 4000) / 10000; // 2% of all tax. 2/5% of tax amount
+            uint256 devFeeAmount = (taxAmount * 1000) / 10000; // 10% of all tax. 0.5/5% of tax amount
 
             console.log("NXDERC20: remainingTax = ", remainingTax);
             console.log("NXDERC20: burnAmount = ", burnAmount);
@@ -502,9 +513,15 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
             // Burn 10% from tax amount
             _balances[0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF] += burnAmount;
+            emit Transfer(from, 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF, burnAmount);
+            _balances[devFeeTo] += devFeeAmount;
+            emit Transfer(from, devFeeTo, devFeeAmount);
+
+            uint256 amountToTaxHandler = remainingTax - burnAmount - devFeeAmount;
 
             // Send NXD to Tax recipient to add liquidity
-            _balances[address(taxRecipient)] += remainingTax - burnAmount;
+            _balances[address(taxRecipient)] += amountToTaxHandler;
+            emit Transfer(from, address(taxRecipient), amountToTaxHandler);
             taxRecipient.handleTax();
         }
         _balances[to] += amountAfterTax;

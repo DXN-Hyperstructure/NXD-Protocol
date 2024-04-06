@@ -82,11 +82,12 @@ contract NXDProtocol {
         address _dbxenViews,
         address _v3Oracle,
         address _governance,
-        address _vesting
+        address _vesting,
+        address _devFeeTo
     ) {
         // dxn = IERC20(_dxn);
         dbxen = IDBXen(_dbxen);
-        nxd = new NXDERC20(initialSupply, msg.sender, IERC20(dxn), _governance, _vesting); // deployer gets initial supply of NXD to create LP
+        nxd = new NXDERC20(initialSupply, msg.sender, IERC20(dxn), _governance, _vesting, _devFeeTo); // deployer gets initial supply of NXD to create LP
 
         nxdStakingVault = new NXDStakingVault(nxd);
         // NXD is whitelisted for tax when sending and when receiving.

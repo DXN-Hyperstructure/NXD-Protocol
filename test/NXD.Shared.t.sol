@@ -83,6 +83,8 @@ abstract contract NXDShared is Test {
     address public devRewardsRecepient2;
     address public devRewardsRecepient3;
 
+    address public devFeeTo;
+
     Vesting public nxdVesting;
 
     function spoofBalance(address token, address account, uint256 balance) public {
@@ -107,6 +109,8 @@ abstract contract NXDShared is Test {
         bob = vm.addr(bobPrivateKey);
         alice = vm.addr(alicePk);
         charlie = vm.addr(charliePk);
+
+        devFeeTo = vm.addr(44);
 
         devRewardsRecepient1 = vm.addr(devRewardsRecepient1Pk);
         devRewardsRecepient2 = vm.addr(devRewardsRecepient2Pk);
@@ -140,7 +144,13 @@ abstract contract NXDShared is Test {
         nxdVesting = new Vesting();
 
         nxdProtocol = new NXDProtocol(
-            INITIAL_NXD_SUPPLY, address(dbxen), address(dbxenViews), address(v3Oracle), bob, address(nxdVesting)
+            INITIAL_NXD_SUPPLY,
+            address(dbxen),
+            address(dbxenViews),
+            address(v3Oracle),
+            bob,
+            address(nxdVesting),
+            devFeeTo
         );
         nxd = nxdProtocol.nxd();
 

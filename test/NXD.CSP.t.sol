@@ -131,7 +131,7 @@ contract CSP is NXDShared {
     function testRevertWhenDepositBeforeLPCreation() public {
         vm.startPrank(bob);
         NXDProtocol _nxdProtocol = new NXDProtocol(
-            10000 ether, address(dbxen), address(dbxenViews), address(v3Oracle), bob, address(nxdVesting)
+            10000 ether, address(dbxen), address(dbxenViews), address(v3Oracle), bob, address(nxdVesting), devFeeTo
         );
         nxd = _nxdProtocol.nxd();
         vm.expectRevert(NXDProtocol.NotInitialized.selector);
