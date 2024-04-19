@@ -21,7 +21,7 @@ contract NXDScript is Script {
     uint256 public constant NXD_DEV_REWARDS_SUPPLY = 15000 ether; // 15,000 NXD
     uint256 public constant NXD_INITIAL_LP_SUPPLY = 5000 ether; //  5,000 NXD for initial supply for  NXD/DXN LP creation
     uint256 public constant INITIAL_NXD_SUPPLY = NXD_DEV_REWARDS_SUPPLY + NXD_INITIAL_LP_SUPPLY; //
-    uint256 public constant DXN_DESIRED = 1 ether;
+    uint256 public constant DXN_DESIRED = 5000 ether;
     uint256 public constant NXD_MAX_REWARDS_SUPPLY = 730000 ether;
 
     address public constant devRewardsRecepient1 = address(0x1);
@@ -36,9 +36,10 @@ contract NXDScript is Script {
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        address deployerAddress = vm.addr(deployerPrivateKey);
+        console.log("Deployer Address: ", deployerAddress);
         vm.startBroadcast(deployerPrivateKey);
         vm.label(address(DXN), "DXN");
-        address deployerAddress = vm.addr(deployerPrivateKey);
 
         address devFeeTo = address(0x1);
 
@@ -64,7 +65,7 @@ contract NXDScript is Script {
         // Create LP
         DXN.approve(address(nxdProtocol), DXN_DESIRED);
         nxd.approve(address(nxdProtocol), NXD_INITIAL_LP_SUPPLY);
-        nxdProtocol.createPool(NXD_INITIAL_LP_SUPPLY, DXN_DESIRED, deployerAddress, block.timestamp);
+        nxdProtocol.createPool(NXD_INITIAL_LP_SUPPLY, DXN_DESIRED, deployerAddress, type(uint256).max);
 
         nxd.transfer(address(nxdVesting), NXD_DEV_REWARDS_SUPPLY);
         nxdVesting.setToken(address(nxd));
