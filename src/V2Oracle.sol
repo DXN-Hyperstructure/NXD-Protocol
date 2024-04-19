@@ -218,7 +218,7 @@ contract V2Oracle {
     FixedPoint.uq112x112 public price1Average;
 
     constructor(address factory, address tokenA, address tokenB) {
-        IUniswapV2PairLocal _pair = IUniswapV2PairLocal(UniswapV2Library.pairFor(factory, tokenA, tokenB));
+        IUniswapV2PairLocal _pair = IUniswapV2PairLocal(IUniswapV2Factory(factory).getPair(address(tokenA), address(tokenB)));
         pair = _pair;
         token0 = _pair.token0();
         token1 = _pair.token1();
