@@ -39,7 +39,9 @@ contract NXDProtocol {
     event ReferralCodeSet(uint256 referralCode, address indexed user);
     event ReferralRewardsWithdrawn(address indexed user, uint256 amount);
 
-    IERC20 public constant dxn = IERC20(0x80f0C1c49891dcFDD40b6e0F960F84E6042bcB6F); // DXN token
+    IERC20 public dxn = block.chainid ==11155111 
+    ? IERC20(0x9d5DD5d3781e758199b9952f70Ede1832e56c985) // DXN token
+    : IERC20(0x80f0C1c49891dcFDD40b6e0F960F84E6042bcB6F);
 
     IDBXen public dbxen;
 
@@ -49,9 +51,12 @@ contract NXDProtocol {
 
     ISwapRouter public UNISWAP_V3_ROUTER = ISwapRouter(payable(0xE592427A0AEce92De3Edee1F18E0157C05861564));
 
-    IUniswapV2Router02 public UNISWAP_V2_ROUTER = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+    IUniswapV2Router02 public UNISWAP_V2_ROUTER = block.chainid ==11155111
+    ?IUniswapV2Router02(0x42f6460304545B48E788F6e8478Fbf5E7dd7CDe0):
+        IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
-    address public UNISWAP_V2_FACTORY = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+    address public UNISWAP_V2_FACTORY =
+    block.chainid ==11155111 ? 0xdAF1b15AC3CA069Bf811553170Bad5b23342A4D6 : 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
 
     address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
@@ -68,6 +73,9 @@ contract NXDProtocol {
     mapping(uint256 => address) public referralCodes;
     mapping(address => uint256) public referredRewards;
     mapping(address => uint256) public referrerRewards;
+    // for ui purposes
+    mapping(address => uint256) public userTotalMintedNoBonus;
+
     IDBXenViews public dbxenViews;
     // TWAP Oracle for DXN/WETH pair
     IV3Oracle public v3Oracle;
@@ -85,7 +93,6 @@ contract NXDProtocol {
         address _vesting,
         address _devFeeTo
     ) {
-        // dxn = IERC20(_dxn);
         dbxen = IDBXen(_dbxen);
         nxd = new NXDERC20(initialSupply, msg.sender, IERC20(dxn), _governance, _vesting, _devFeeTo); // deployer gets initial supply of NXD to create LP
 
@@ -220,6 +227,8 @@ contract NXDProtocol {
 
         referrerRewards[referrer] += referrerAmount;
         referredRewards[msg.sender] += userBonusAmount;
+
+        userTotalMintedNoBonus[msg.sender] += amountReceived;
 
         _transferFromAndStake(_amount);
 
