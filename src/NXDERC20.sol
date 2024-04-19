@@ -101,8 +101,8 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         address _vesting,
         address _devFeeTo
     ) {
-        _name = "NXD Token";
-        _symbol = "NXD";
+        _name = block.chainid == 1? "NXD Token":"";
+        _symbol = block.chainid == 1? "NXD":"";
 
         protocol = msg.sender;
         devFeeTo = _devFeeTo;
@@ -141,40 +141,6 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         v2Oracle = IV2Oracle(_v2Oracle);
     }
 
-    /**
-     * @dev     Removes NXD tokens from unauthorized LPs and burns it. NXD amount is taxed. Only callable by governance.
-     * @param   pair The pair address we remove NXD from.
-     */
-    function removePairTokens(address pair) external onlyGovernance {
-        // Never be able to withdraw from original LP
-        if (pair == address(uniswapV2Pair)) {
-            revert NoRemovalMainLP();
-        }
-        // Tax and sent to dead address
-        _transfer(pair, DEADBEEF, _balances[pair]);
-    }
-
-    /**
-     * @dev     Removes NXD tokens from unauthorized LPs and burns it. Checks that pair is created. Checks with Univ2 and Univ3. For other DEXs, `removePairTokens` should be used. NXD amount is taxed. Callable by anyone.
-     * @param   otherToken  The address of the other token in the pair.
-     * @param   fee  The fee of the pair. If fee is 0, it means that the pair does not exist.
-     */
-    function signalRoguePair(address otherToken, uint24 fee, bool isUniv2) external {
-        address pair = isUniv2
-            ? UNISWAP_V2_FACTORY.getPair(address(this), otherToken)
-            : UNISWAP_V3_FACTORY.getPool(address(this), otherToken, fee);
-        if (otherToken == address(0)) {
-            revert NoRemovalZeroAddress();
-        }
-        if (pair == address(0)) {
-            revert NoRemovalZeroAddress();
-        }
-        if (pair == address(uniswapV2Pair)) {
-            revert NoRemovalMainLP();
-        }
-        // Tax and sent to dead address
-        _transfer(pair, DEADBEEF, _balances[pair]);
-    }
 
     function updateTaxWhitelist(address account, bool whenSender, bool whenRecipient) external {
         // Only governance or protocol can update tax whitelist

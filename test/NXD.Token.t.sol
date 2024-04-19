@@ -96,49 +96,6 @@ contract NXDTokenTest is NXDShared {
         assertEq(nxd.lpSupplyOfPair(uniswapV2Pair), initialLiquiditySupply + 1000, "lpSupplyOfPair should match");
     }
 
-    function testRevertWhenSignalRoguePairMainLP() public {
-        address uniswapV2Pair = address(nxd.uniswapV2Pair());
-        vm.expectRevert(NXDERC20.NoRemovalMainLP.selector);
-        nxd.signalRoguePair(address(dxn), 0, true);
-    }
-
-    function testRevertWhenSignalRoguePairWhenOtherTokenZeroAddress() public {
-        address uniswapV2Pair = address(nxd.uniswapV2Pair());
-        vm.expectRevert(NXDERC20.NoRemovalZeroAddress.selector);
-        nxd.signalRoguePair(address(0), 0, true);
-    }
-
-    function testRevertSignalRoguePairWhenPairDoesNotExist() public {
-        address uniswapV2Pair = address(nxd.uniswapV2Pair());
-        vm.expectRevert(NXDERC20.NoRemovalZeroAddress.selector);
-        nxd.signalRoguePair(address(DEADBEEF), 0, true);
-    }
-
-    function testSignalRoguePair() public {
-        vm.startPrank(bob);
-        MockToken rogueToken = (new MockToken(10000 ether, "", "", 18));
-        spoofBalance(address(nxd), bob, 10000 ether);
-
-        rogueToken.approve(address(UNISWAP_V2_ROUTER), 1000 ether);
-        nxd.approve(address(UNISWAP_V2_ROUTER), 1000 ether);
-
-        uint256 expectedPairBalanceAfterTax = 1000 ether - ((1000 ether * nxd.SELL_TAX_X100()) / 10000);
-
-        UNISWAP_V2_ROUTER.addLiquidity(
-            address(nxd), address(rogueToken), 1000 ether, 1000 ether, 0, 0, address(bob), block.timestamp
-        );
-        address pairAddress = IUniswapV2Factory(UNISWAP_V2_FACTORY).getPair(address(nxd), address(rogueToken));
-
-        assertEq(
-            nxd.balanceOf(pairAddress),
-            expectedPairBalanceAfterTax,
-            "pair balance should be 1000 ether after lp addition"
-        );
-
-        nxd.signalRoguePair(address(rogueToken), 0, true);
-
-        assertEq(nxd.balanceOf(pairAddress), 0, "pair balance should be 0 after lp removal");
-    }
 
     uint256 devFeeBalanceBefore;
     uint256 expectedDevFeeAmount;
@@ -426,57 +383,4 @@ contract NXDTokenTest is NXDShared {
         assertEq(nxdDXNPair.balanceOf(address(bob)), bobLPBalance, "Bob LP balance should not change");
     }
 
-    function testRevertWhenUnauthorizedRemovePairTokens() public {
-        vm.expectRevert(NXDERC20.Unauthorized.selector);
-        nxd.removePairTokens(address(0));
-    }
-
-    function testRevertWhenRemovePairTokensOfMainLP() public {
-        address pair = address(nxd.uniswapV2Pair());
-        vm.startPrank(bob);
-        vm.expectRevert(NXDERC20.NoRemovalMainLP.selector);
-        nxd.removePairTokens(pair);
-    }
-
-    function testRemovePairTokens() public {
-        uint256 amountNXDToDeposit = 0.5 ether;
-
-        vm.startPrank(alice);
-        IERC20 unauthorizedToken = new MockToken(1 ether, "ROGUE", "ROGUE", 18);
-        unauthorizedToken.approve(address(UNISWAP_V2_ROUTER), type(uint256).max);
-
-        dxn.approve(address(nxdProtocol), amountNXDToDeposit);
-        nxdProtocol.deposit(amountNXDToDeposit, 1, true);
-        // We now have NXD
-        nxd.approve(address(UNISWAP_V2_ROUTER), type(uint256).max);
-        UNISWAP_V2_ROUTER.addLiquidity(
-            address(unauthorizedToken), address(nxd), 1 ether, amountNXDToDeposit, 0, 0, address(this), block.timestamp
-        );
-        address roguePair = IUniswapV2Factory(UNISWAP_V2_FACTORY).getPair(address(unauthorizedToken), address(nxd));
-        vm.stopPrank();
-
-        (uint256 depositedAfterTax,) = nxd.getAmountsAfterTax(alice, roguePair, amountNXDToDeposit);
-
-        uint256 pairBalanceOfNXDBefore = nxd.balanceOf(address(roguePair));
-        uint256 nxdBalanceOfBurnAddressBefore = nxd.balanceOf(address(DEADBEEF));
-
-        (uint256 amountAfterTax, uint256 taxAmount) =
-            nxd.getAmountsAfterTax(roguePair, address(DEADBEEF), depositedAfterTax);
-
-        assertEq(pairBalanceOfNXDBefore, depositedAfterTax, "NXD balance =  taxed amountNXDToDeposit");
-
-        vm.prank(bob);
-        nxd.removePairTokens(address(roguePair));
-
-        uint256 sellNXDAmount = (taxAmount * 4000) / 10000; // 85% (80% to buy and stake DXN, 5% to buy DXN and add liquidity to NXD/DXN pair)
-        uint256 remainingTax = taxAmount - sellNXDAmount; // 15%
-        uint256 burnAmount = (taxAmount * 4000) / 10000; // 1% of all tax. 10% of tax amount. 66.66666666666666% of remaining tax
-
-        assertEq(
-            nxd.balanceOf(address(DEADBEEF)),
-            nxdBalanceOfBurnAddressBefore + amountAfterTax + burnAmount,
-            "NXD balance of burn addrses should increase"
-        );
-        assertEq(nxd.balanceOf(address(roguePair)), 0, "NXD balance of pair should be 0");
-    }
 }
