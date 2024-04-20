@@ -71,6 +71,8 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
     IERC20 public dxn;
     // Max to be minted as rewards for staking DXN
     uint256 public constant MAX_REWARDS_SUPPLY = 730_000 ether; // 730k NXD
+    // Max to be minted for dev alloc (2% of total supply)
+    uint256 public constant MAX_DEV_ALLOC = 15_000 ether; // 15k NXD
     // Max rewards supply + initial supply for liquidity
     uint256 public maxSupply;
 
@@ -111,7 +113,7 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
         dxn = _dxn;
 
-        maxSupply = _initialSupply + MAX_REWARDS_SUPPLY;
+        maxSupply = _initialSupply + MAX_REWARDS_SUPPLY + MAX_DEV_ALLOC;
 
         taxRecipient = new TaxRecipient(msg.sender);
 
@@ -356,7 +358,7 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         if (msg.sender != protocol) {
             revert Unauthorized();
         }
-        if (totalSupply() + amount > maxSupply) {
+        if (totalSupply() + amount > maxSupply - MAX_DEV_ALLOC) {
             revert MaxSupply();
         }
         _mint(account, amount);

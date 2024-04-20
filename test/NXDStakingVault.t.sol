@@ -280,6 +280,7 @@ contract NXDStakingVaultTest is NXDShared {
         nxd.approve(address(nxdStakingVault), amountToStake);
         nxdStakingVault.deposit(0, amountToStake);
         uint256 amountToWithdraw = amountToStake / 2;
+        uint burnBalanceBefore = nxd.balanceOf(DEADBEEF);
         nxdStakingVault.withdraw(0, amountToWithdraw, true);
 
         uint256 expectedAmountAfterPenalty = (amountToWithdraw * 7500) / 10000;
@@ -290,7 +291,7 @@ contract NXDStakingVaultTest is NXDShared {
 
         assertEq(nxd.balanceOf(bob), expectedAmountAfterPenalty, "Bob should have half of his NXD back");
         assertEq(
-            nxd.balanceOf(0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF),
+            nxd.balanceOf(DEADBEEF) - burnBalanceBefore,
             amountToWithdraw - expectedAmountAfterPenalty,
             "25% penalty should be burnt"
         );

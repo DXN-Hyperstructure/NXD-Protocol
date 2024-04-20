@@ -20,7 +20,7 @@ contract NXDScript is Script {
     DBXenViews public dbxenViews;
     uint256 public constant NXD_DEV_REWARDS_SUPPLY = 15000 ether; // 15,000 NXD
     uint256 public constant NXD_INITIAL_LP_SUPPLY = 5000 ether; //  5,000 NXD for initial supply for  NXD/DXN LP creation
-    uint256 public constant INITIAL_NXD_SUPPLY = NXD_DEV_REWARDS_SUPPLY + NXD_INITIAL_LP_SUPPLY; //
+    uint256 public constant INITIAL_NXD_SUPPLY =  NXD_INITIAL_LP_SUPPLY; //
     uint256 public constant DXN_DESIRED = 5000 ether;
     uint256 public constant NXD_MAX_REWARDS_SUPPLY = 730000 ether;
 
@@ -54,8 +54,8 @@ contract NXDScript is Script {
             address(dbxenViews),
             address(v3Oracle),
             deployerAddress,
-            address(nxdVesting),
-            devFeeTo
+            devFeeTo,
+            deployerAddress
         );
 
         nxd = nxdProtocol.nxd();
@@ -67,11 +67,11 @@ contract NXDScript is Script {
         nxd.approve(address(nxdProtocol), NXD_INITIAL_LP_SUPPLY);
         nxdProtocol.createPool(NXD_INITIAL_LP_SUPPLY, DXN_DESIRED, deployerAddress, type(uint256).max);
 
-        nxd.transfer(address(nxdVesting), NXD_DEV_REWARDS_SUPPLY);
-        nxdVesting.setToken(address(nxd));
-        nxdVesting.setVesting(devRewardsRecepient1, 5000 ether);
-        nxdVesting.setVesting(devRewardsRecepient2, 5000 ether);
-        nxdVesting.setVesting(devRewardsRecepient3, 5000 ether);
+        // nxd.transfer(address(nxdVesting), NXD_DEV_REWARDS_SUPPLY);
+        // nxdVesting.setToken(address(nxd));
+        // nxdVesting.setVesting(devRewardsRecepient1, 5000 ether);
+        // nxdVesting.setVesting(devRewardsRecepient2, 5000 ether);
+        // nxdVesting.setVesting(devRewardsRecepient3, 5000 ether);
 
         console.log("NXD Token: ", address(nxd));
         console.log("DBXen Views Deployed At: ", address(dbxenViews));

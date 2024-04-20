@@ -78,7 +78,7 @@ abstract contract NXDShared is Test {
 
     uint256 public constant NXD_DEV_REWARDS_SUPPLY = 15000 ether; // 15,000 NXD
     uint256 public constant NXD_INITIAL_LP_SUPPLY = 5000 ether; //  5,000 NXD for initial supply for  NXD/DXN LP creation
-    uint256 public constant INITIAL_NXD_SUPPLY = NXD_DEV_REWARDS_SUPPLY + NXD_INITIAL_LP_SUPPLY; //
+    uint256 public constant INITIAL_NXD_SUPPLY = NXD_INITIAL_LP_SUPPLY; //
     address public devRewardsRecepient1;
     address public devRewardsRecepient2;
     address public devRewardsRecepient3;
@@ -92,6 +92,29 @@ abstract contract NXDShared is Test {
         IERC20(token).balanceOf(account);
         (bytes32[] memory reads,) = vm.accesses(token);
         vm.store(token, reads[0], bytes32(uint256(balance)));
+    }
+
+    function burnXen(address from, bool claim) public {
+        vm.txGasPrice(19000000);
+        vm.startPrank(from);
+        vm.deal(from, 1 ether);
+
+        uint256 batchNumber = 1;
+        xen.approve(address(dbxen), batchNumber * dbxen.XEN_BATCH_AMOUNT());
+        dbxen.burnBatch{value: 1 ether}(batchNumber);
+        uint256 cycleAccruedFees = dbxen.cycleAccruedFees(dbxen.currentCycle());
+        console.log("DBXen cycleAccruedFees: %s", cycleAccruedFees);
+
+        if (claim) {
+            vm.warp(block.timestamp + 1 days);
+            uint256 expectedUnclaimedFees = dbxenViews.getUnclaimedFees(from);
+            console.log("Unclaimed fees: %s", expectedUnclaimedFees);
+            console.log("DBXen ETH balace = ", address(dbxen).balance);
+            dbxen.claimFees();
+            expectedUnclaimedFees = dbxenViews.getUnclaimedFees(from);
+            console.log("Unclaimed fees after claim: %s", expectedUnclaimedFees);
+        }
+        vm.stopPrank();
     }
 
     constructor() {
@@ -141,7 +164,6 @@ abstract contract NXDShared is Test {
         v3Oracle = new V3Oracle();
 
         vm.startPrank(bob);
-        nxdVesting = new Vesting();
 
         nxdProtocol = new NXDProtocol(
             INITIAL_NXD_SUPPLY,
@@ -149,11 +171,11 @@ abstract contract NXDShared is Test {
             address(dbxenViews),
             address(v3Oracle),
             bob,
-            address(nxdVesting),
-            devFeeTo
+            devFeeTo,
+            bob
         );
         nxd = nxdProtocol.nxd();
-
+        nxdVesting = nxdProtocol.vesting();
         nxdStakingVault = nxdProtocol.nxdStakingVault();
 
         nonfungiblePositionManager =
@@ -186,12 +208,12 @@ abstract contract NXDShared is Test {
         initialLiquiditySupply =
             nxdProtocol.createPool(NXD_INITIAL_LP_SUPPLY, 1000 ether, address(this), block.timestamp);
 
-        // Deploy vesting
-        nxd.transfer(address(nxdVesting), NXD_DEV_REWARDS_SUPPLY);
-        nxdVesting.setToken(address(nxd));
-        nxdVesting.setVesting(devRewardsRecepient1, 5000 ether);
-        nxdVesting.setVesting(devRewardsRecepient2, 5000 ether);
-        nxdVesting.setVesting(devRewardsRecepient3, 5000 ether);
+        // // Deploy vesting
+        // nxd.transfer(address(nxdVesting), NXD_DEV_REWARDS_SUPPLY);
+        // nxdVesting.setToken(address(nxd));
+        // nxdVesting.setVesting(devRewardsRecepient1, 5000 ether);
+        // nxdVesting.setVesting(devRewardsRecepient2, 5000 ether);
+        // nxdVesting.setVesting(devRewardsRecepient3, 5000 ether);
 
         vm.stopPrank();
 

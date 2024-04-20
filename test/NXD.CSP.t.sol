@@ -105,34 +105,10 @@ contract CSP is NXDShared {
         assertEq(nxdProtocol.currentRate(), expectedRate);
     }
 
-    function burnXen(address from, bool claim) public {
-        vm.txGasPrice(19000000);
-        vm.startPrank(from);
-        vm.deal(from, 1 ether);
-
-        uint256 batchNumber = 1;
-        xen.approve(address(dbxen), batchNumber * dbxen.XEN_BATCH_AMOUNT());
-        dbxen.burnBatch{value: 1 ether}(batchNumber);
-        uint256 cycleAccruedFees = dbxen.cycleAccruedFees(dbxen.currentCycle());
-        console.log("DBXen cycleAccruedFees: %s", cycleAccruedFees);
-
-        if (claim) {
-            vm.warp(block.timestamp + 1 days);
-            uint256 expectedUnclaimedFees = dbxenViews.getUnclaimedFees(from);
-            console.log("Unclaimed fees: %s", expectedUnclaimedFees);
-            console.log("DBXen ETH balace = ", address(dbxen).balance);
-            dbxen.claimFees();
-            expectedUnclaimedFees = dbxenViews.getUnclaimedFees(from);
-            console.log("Unclaimed fees after claim: %s", expectedUnclaimedFees);
-        }
-        vm.stopPrank();
-    }
-
     function testRevertWhenDepositBeforeLPCreation() public {
         vm.startPrank(bob);
-        NXDProtocol _nxdProtocol = new NXDProtocol(
-            10000 ether, address(dbxen), address(dbxenViews), address(v3Oracle), bob, address(nxdVesting), devFeeTo
-        );
+        NXDProtocol _nxdProtocol =
+            new NXDProtocol(10000 ether, address(dbxen), address(dbxenViews), address(v3Oracle), bob, devFeeTo, bob);
         nxd = _nxdProtocol.nxd();
         vm.expectRevert(NXDProtocol.NotInitialized.selector);
         _nxdProtocol.deposit(1, 0, false);
@@ -396,6 +372,7 @@ contract CSP is NXDShared {
         uint256 dxnStartingBalanceOfBob = dxn.balanceOf(bob);
         vm.startPrank(bob);
         dxn.approve(address(nxdProtocol), amount);
+        uint256 protocolStakedBefore = dbxen.accStakeCycle(address(nxdProtocol), dbxen.currentCycle() + 1);
         nxdProtocol.depositNoMint(amount);
 
         assertEq(nxd.balanceOf(bob), nxdStartingBalanceOfBob, "Bob's NXD balance after deposit should be the same.");
@@ -405,7 +382,7 @@ contract CSP is NXDShared {
         // DBXen should have increased our stake
 
         uint256 protocolStaked = dbxen.accStakeCycle(address(nxdProtocol), dbxen.currentCycle() + 1);
-        assertEq(protocolStaked, amount, "Protocol staked amount should match");
+        assertEq(protocolStaked - protocolStakedBefore, amount, "Protocol staked amount should match");
 
         assertEq(
             dbxen.accFirstStake(address(nxdProtocol)), dbxen.currentCycle() + 1, "Fundraiser first stake should match"
@@ -432,12 +409,11 @@ contract CSP is NXDShared {
         uint256 amount = NXD_MAX_REWARDS_SUPPLY + 1;
         uint256 bobDxnBalance = dxn.balanceOf(bob);
         uint256 bobNxdBalance = nxd.balanceOf(bob);
-        uint256 remainingSupply = nxd.maxSupply() - nxd.totalSupply();
+        uint256 remainingSupply = nxd.maxSupply() - nxd.totalSupply() - nxd.MAX_DEV_ALLOC();
         uint256 expectedBobNxd =
             remainingSupply - ((((remainingSupply * 1.15 ether - (remainingSupply * 1e18)) * 1e18) / 1.15 ether) / 1e18);
         uint256 referredBonusAmount = (expectedBobNxd * REFERRAL_BONUS) / 10000; // 10% bonus for referred user
         uint256 referrerBonusAmount = (expectedBobNxd * REFERRER_BONUS) / 10000; // 10% bonus for referred user
-
         vm.startPrank(bob);
         dxn.approve(address(nxdProtocol), amount);
         nxdProtocol.deposit(amount, 1, true);
@@ -447,7 +423,7 @@ contract CSP is NXDShared {
         assertEq(nxd.balanceOf(bob), expectedBobNxd + bobNxdBalance, "Bob's NXD balance after deposit");
         assertEq(
             nxd.totalSupply() + referredBonusAmount + referrerBonusAmount,
-            nxd.maxSupply(),
+            nxd.maxSupply() - nxd.MAX_DEV_ALLOC(),
             "NXD total supply after deposit"
         );
         assertEq(nxdProtocol.referrerRewards(charlie), referrerBonusAmount, "Charlie's referrer rewards");

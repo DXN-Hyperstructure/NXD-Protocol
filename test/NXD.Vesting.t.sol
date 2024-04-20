@@ -4,23 +4,60 @@ import "../src/Vesting.sol";
 
 contract VestingTest is NXDShared {
     function testSetUpVesting() public {
-        assertEq(nxd.balanceOf(address(nxdVesting)), NXD_DEV_REWARDS_SUPPLY);
-        (uint256 amount1, uint256 start1) = nxdVesting.tokenAmountToVest(devRewardsRecepient1);
-        (uint256 amount2, uint256 start2) = nxdVesting.tokenAmountToVest(devRewardsRecepient2);
-        (uint256 amount3, uint256 start3) = nxdVesting.tokenAmountToVest(devRewardsRecepient3);
+        assertEq(nxd.balanceOf(address(nxdVesting)), 0, "Vesting should have 0 NXD");
+    }
 
-        assertEq(amount1, NXD_DEV_REWARDS_SUPPLY / 3, "amount 1 should be 1/3 of total");
-        assertEq(amount2, NXD_DEV_REWARDS_SUPPLY / 3, "amount 2 should be 1/3 of total");
-        assertEq(amount3, NXD_DEV_REWARDS_SUPPLY / 3, "amount 3 should be 1/3 of total");
+    function depositAndFastForwardToLMPEnd() public {
+        burnXen(charlie, true);
+        vm.warp(startTime);
+        uint256 nxdSupplyBeforeDeposits = nxd.totalSupply();
+        uint256 amount = 1000000000000000000;
+        uint256 dxnStartingBalanceOfBob = dxn.balanceOf(bob);
+        uint256 dxnStartingBalanceOfAlice = dxn.balanceOf(alice);
+        vm.startPrank(bob);
+        dxn.approve(address(nxdProtocol), amount);
+        nxdProtocol.deposit(amount, 0, false);
 
-        assertEq(start1, block.timestamp, "start time should be now");
-        assertEq(start2, block.timestamp, "start time should be now");
-        assertEq(start3, block.timestamp, "start time should be now");
+        uint256 secondsPassed = 1 days;
+        vm.warp(startTime + secondsPassed);
 
-        assertEq(nxdVesting.claimable(devRewardsRecepient1), 0, "claimable amount should be 0");
+        dxn.approve(address(nxdProtocol), amount);
+        nxdProtocol.deposit(amount, 0, false);
+
+        vm.stopPrank();
+
+        secondsPassed = 14 days; // 14 days
+        amount = 1 ether;
+        vm.warp(startTime + secondsPassed);
+        vm.startPrank(alice);
+        dxn.approve(address(nxdProtocol), amount);
+        nxdProtocol.deposit(amount, 0, false);
+        vm.stopPrank();
+
+        burnXen(charlie, false);
+
+        vm.warp(block.timestamp + 1 days);
+    }
+
+    function testMintDevAlloc() public {
+        depositAndFastForwardToLMPEnd();
+        address[] memory recipients = new address[](3);
+        recipients[0] = devRewardsRecepient1;
+        recipients[1] = devRewardsRecepient2;
+        recipients[2] = devRewardsRecepient3;
+        vm.startPrank(bob);
+        uint256 totalMinted = nxd.totalSupply();
+
+        nxdProtocol.mintDevAlloc(recipients);
+
+        uint256 expectedDevAlloc = ((totalMinted * 10000) / 9800) - totalMinted;
+        uint256 balanceOfVesting = nxd.balanceOf(address(nxdVesting));
+
+        assertEq(balanceOfVesting, expectedDevAlloc, "Vesting should have 2% of total minted");
     }
 
     function testClaimZero() public {
+        depositAndFastForwardToLMPEnd();
         uint256 claimableAmount = nxdVesting.claimable(devRewardsRecepient1);
         assertEq(claimableAmount, 0, "claimable amount should be 0");
 
@@ -32,6 +69,16 @@ contract VestingTest is NXDShared {
     }
 
     function testClaimHalf() public {
+        depositAndFastForwardToLMPEnd();
+        address[] memory recipients = new address[](3);
+        recipients[0] = devRewardsRecepient1;
+        recipients[1] = devRewardsRecepient2;
+        recipients[2] = devRewardsRecepient3;
+        vm.startPrank(bob);
+        uint256 totalMinted = nxd.totalSupply();
+
+        nxdProtocol.mintDevAlloc(recipients);
+
         vm.startPrank(devRewardsRecepient1);
         (, uint256 start1) = nxdVesting.tokenAmountToVest(devRewardsRecepient1);
         uint256 claimableAmount = nxdVesting.claimable(devRewardsRecepient1);
@@ -40,7 +87,7 @@ contract VestingTest is NXDShared {
         uint256 elapsed = nxdVesting.VESTING_DURATION_SECS() / divideTotalBy;
         vm.warp(start1 + elapsed);
         claimableAmount = nxdVesting.claimable(devRewardsRecepient1);
-        uint256 expectedClaimableAmount = (NXD_DEV_REWARDS_SUPPLY / 3) / divideTotalBy;
+        uint256 expectedClaimableAmount = (nxd.balanceOf(address(nxdVesting)) / 3) / divideTotalBy;
         assertEq(claimableAmount, expectedClaimableAmount, "claimable amount should be half of total");
 
         nxdVesting.claim();
@@ -51,6 +98,16 @@ contract VestingTest is NXDShared {
     }
 
     function testClaimAll() public {
+        depositAndFastForwardToLMPEnd();
+        address[] memory recipients = new address[](3);
+        recipients[0] = devRewardsRecepient1;
+        recipients[1] = devRewardsRecepient2;
+        recipients[2] = devRewardsRecepient3;
+        vm.startPrank(bob);
+        uint256 totalMinted = nxd.totalSupply();
+
+        nxdProtocol.mintDevAlloc(recipients);
+
         vm.startPrank(devRewardsRecepient1);
         (, uint256 start1) = nxdVesting.tokenAmountToVest(devRewardsRecepient1);
 
@@ -60,7 +117,7 @@ contract VestingTest is NXDShared {
         vm.warp(start1 + elapsed);
 
         claimableAmount = nxdVesting.claimable(devRewardsRecepient1);
-        uint256 expectedClaimableAmount = NXD_DEV_REWARDS_SUPPLY / 3;
+        uint256 expectedClaimableAmount = nxd.balanceOf(address(nxdVesting)) / 3;
         assertEq(claimableAmount, expectedClaimableAmount, "claimable amount should be total");
 
         nxdVesting.claim();
@@ -92,6 +149,16 @@ contract VestingTest is NXDShared {
 
     /// forge-config: default.fuzz.runs = 20
     function testFuzz_claimAll(uint256[] memory elapsed) public {
+        depositAndFastForwardToLMPEnd();
+        address[] memory recipients = new address[](3);
+        recipients[0] = devRewardsRecepient1;
+        recipients[1] = devRewardsRecepient2;
+        recipients[2] = devRewardsRecepient3;
+        vm.startPrank(bob);
+        uint256 totalMinted = nxd.totalSupply();
+
+        nxdProtocol.mintDevAlloc(recipients);
+
         vm.startPrank(devRewardsRecepient1);
         uint256 lastTime = 0;
 
@@ -134,13 +201,6 @@ contract VestingTest is NXDShared {
             uint256 claimableAmountAfter = nxdVesting.claimable(devRewardsRecepient1);
             assertEq(claimableAmountAfter, 0, "claimable amount should be 0");
         }
-    }
-
-    function testRevertWhenSetTokenAlreadySet() public {
-        vm.startPrank(bob);
-        vm.expectRevert(Vesting.AlreadySet.selector);
-        nxdVesting.setToken(address(nxd));
-        assertEq(address(nxdVesting.token()), address(nxd), "token should be set");
     }
 
     function testRevertWhenSetTokenZero() public {
