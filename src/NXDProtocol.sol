@@ -343,7 +343,6 @@ contract NXDProtocol {
         console.log("mintDevAlloc totalNXDMinted = ", totalNXDMinted);
         uint256 devAlloc = ((totalNXDMinted * 10000) / 9800) - totalNXDMinted;
         console.log("mintDevAlloc devAlloc = ", devAlloc);
-        console.log("mintDevAlloc devAllocStatic = ", devAllocStatic);
 
         if (devAlloc > 0) {
             if (devAlloc + totalNXDMinted > nxd.maxSupply()) {
