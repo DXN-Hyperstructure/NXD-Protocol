@@ -415,6 +415,7 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
             // LP add - 1%
             // Dev Fee - 0.5%
             _balances[address(this)] += taxAmount;
+            emit Transfer(from, address(this), taxAmount);
             address[] memory nxdDXNPath = new address[](2);
             nxdDXNPath[0] = address(this);
             nxdDXNPath[1] = address(dxn);
@@ -449,15 +450,15 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
             // Burn 10% from tax amount
             _balances[0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF] += burnAmount;
-            emit Transfer(from, 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF, burnAmount);
+            emit Transfer(address(this), 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF, burnAmount);
             _balances[devFeeTo] += devFeeAmount;
-            emit Transfer(from, devFeeTo, devFeeAmount);
+            emit Transfer(address(this), devFeeTo, devFeeAmount);
 
             uint256 amountToTaxHandler = remainingTax - burnAmount - devFeeAmount;
 
             // Send NXD to Tax recipient to add liquidity
             _balances[address(taxRecipient)] += amountToTaxHandler;
-            emit Transfer(from, address(taxRecipient), amountToTaxHandler);
+            emit Transfer(address(this), address(taxRecipient), amountToTaxHandler);
             taxRecipient.handleTax();
         }
         _balances[to] += amountAfterTax;
