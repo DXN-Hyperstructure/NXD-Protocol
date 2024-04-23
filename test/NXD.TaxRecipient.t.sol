@@ -10,12 +10,6 @@ contract TaxRecipientTest is NXDShared {
         taxRecipient = nxd.taxRecipient();
     }
 
-    function testRevertWhenUnauthorizedSetUniV2Pair() public {
-        vm.startPrank(bob);
-        vm.expectRevert(TaxRecipient.OnlyNXD.selector);
-        taxRecipient.setUniswapV2Pair(address(0x0));
-    }
-
     function testRevertWhenUnauthorizedHandleTax() public {
         vm.startPrank(bob);
         vm.expectRevert(TaxRecipient.OnlyNXD.selector);

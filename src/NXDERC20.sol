@@ -129,7 +129,6 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
             revert Unauthorized();
         }
         uniswapV2Pair = IUniswapV2Pair(_uniswapV2Pair);
-        taxRecipient.setUniswapV2Pair(_uniswapV2Pair);
 
         _updateTaxWhitelist(_uniswapV2Pair, true, false);
     }
