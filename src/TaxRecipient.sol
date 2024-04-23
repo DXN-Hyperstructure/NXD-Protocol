@@ -9,8 +9,8 @@ import "./interfaces/IUniswapV2Pair.sol";
 contract TaxRecipient {
     error OnlyNXD();
 
-    IERC20 public nxd;
-    address public protocol;
+    IERC20 public immutable nxd;
+    address public immutable protocol;
     IERC20 public constant dxn = IERC20(0x80f0C1c49891dcFDD40b6e0F960F84E6042bcB6F); // DXN token
     IUniswapV2Router02 public UNISWAP_V2_ROUTER = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
     IUniswapV2Pair public uniswapV2Pair;

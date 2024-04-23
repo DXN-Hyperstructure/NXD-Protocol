@@ -83,8 +83,8 @@ contract NXDStakingVault {
     mapping(uint256 => uint256) public epochRewards;
 
     // The NXD TOKEN!
-    IERC20 public nxd;
-    INXDProtocol public nxdProtocol;
+    IERC20 public immutable nxd;
+    INXDProtocol public immutable nxdProtocol;
 
     // keep track of latest known eth balance. used to determine new rewards
     uint256 public ourETHBalance;

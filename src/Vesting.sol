@@ -20,7 +20,7 @@ contract Vesting {
 
     IERC20 public token;
 
-    address owner;
+    address immutable owner;
 
     constructor() {
         owner = msg.sender;

@@ -53,11 +53,11 @@ contract NXDProtocol {
         ? IERC20(0x9d5DD5d3781e758199b9952f70Ede1832e56c985) // DXN token
         : IERC20(0x80f0C1c49891dcFDD40b6e0F960F84E6042bcB6F);
 
-    IDBXen public dbxen;
+    IDBXen public immutable dbxen;
 
-    NXDERC20 public nxd;
+    NXDERC20 public immutable nxd;
 
-    NXDStakingVault public nxdStakingVault;
+    NXDStakingVault public immutable nxdStakingVault;
 
     ISwapRouter public UNISWAP_V3_ROUTER = ISwapRouter(payable(0xE592427A0AEce92De3Edee1F18E0157C05861564));
 
@@ -88,15 +88,15 @@ contract NXDProtocol {
     // for ui purposes
     mapping(address => uint256) public userTotalMintedNoBonus;
 
-    IDBXenViews public dbxenViews;
+    IDBXenViews public immutable dbxenViews;
     // TWAP Oracle for DXN/WETH pair
-    IV3Oracle public v3Oracle;
+    IV3Oracle public immutable v3Oracle;
     // Simple TWAP Oracle for NXD/DXN pair
     V2Oracle public v2Oracle;
 
     uint256 public pendingDXNToStake;
 
-    Vesting public vesting;
+    Vesting public immutable vesting;
 
     address public devAllocMinter;
 
@@ -345,6 +345,11 @@ contract NXDProtocol {
             dxn.approve(address(dbxen), amount);
             dbxen.stake(amount);
         }
+    }
+
+    function setDevAllocMinter(address newDevAllowMinter) external {
+        if (msg.sender != devAllocMinter) revert NotAuthorized();
+        devAllocMinter = newDevAllowMinter;
     }
     /**
      * @dev    Mints NXD for the dev allocation and distributes it to the recipients. Can only be called by the devAllocMinter.

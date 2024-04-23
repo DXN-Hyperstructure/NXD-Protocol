@@ -74,9 +74,9 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
     // Max to be minted for dev alloc (2% of total supply)
     uint256 public constant MAX_DEV_ALLOC = 15_000 ether; // 15k NXD
     // Max rewards supply + initial supply for liquidity
-    uint256 public maxSupply;
+    uint256 public immutable maxSupply;
 
-    TaxRecipient public taxRecipient;
+    TaxRecipient public immutable taxRecipient;
 
     uint256 public lastSupplyOfNXDInPair;
     uint256 public lastSupplyOfDXNInPair;
@@ -92,8 +92,7 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
     }
 
     /**
-     * Sets the owner address.
-     * Called from within the DBXen.sol constructor.
+     * Called from within the NXDProtocol.sol constructor.
      */
     constructor(
         uint256 _initialSupply,
@@ -464,6 +463,13 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         }
         _balances[to] += amountAfterTax;
         emit Transfer(from, to, amountAfterTax);
+    }
+
+    function setDevFeeTo(address _devFeeTo) external {
+        if (msg.sender != devFeeTo) {
+            revert Unauthorized();
+        }
+        devFeeTo = _devFeeTo;
     }
 
     function transfer(address to, uint256 value) public virtual override returns (bool) {
