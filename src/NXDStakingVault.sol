@@ -75,13 +75,6 @@ contract NXDStakingVault {
     //// pending rewards awaiting anyone to massUpdate
     uint256 public pendingRewards;
 
-    uint256 public contractStartBlock;
-    uint256 public epochCalculationStartBlock;
-    uint256 public cumulativeRewardsSinceStart;
-    uint256 public rewardsInThisEpoch;
-    uint256 public epoch;
-    mapping(uint256 => uint256) public epochRewards;
-
     // The NXD TOKEN!
     IERC20 public immutable nxd;
     INXDProtocol public immutable nxdProtocol;
@@ -164,7 +157,6 @@ contract NXDStakingVault {
         if (newRewards > 0) {
             ourETHBalance = address(this).balance; // If there is no change the balance didn't change
             pendingRewards = pendingRewards + newRewards;
-            rewardsInThisEpoch = rewardsInThisEpoch + newRewards;
         }
     }
 
