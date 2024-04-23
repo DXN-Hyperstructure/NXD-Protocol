@@ -130,7 +130,6 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
             revert Unauthorized();
         }
         uniswapV2Pair = IUniswapV2Pair(_uniswapV2Pair);
-        sync(_uniswapV2Pair);
         taxRecipient.setUniswapV2Pair(_uniswapV2Pair);
 
         _updateTaxWhitelist(_uniswapV2Pair, true, false);
@@ -396,49 +395,12 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         return (amountAfterTax, taxAmount);
     }
 
-    /**
-     * @dev     Checks if our tracked LP supply of the given pair is less than the current LP supply. If so, it means that LP tokens were burned.
-     * @param   pair  The address of the pair to check.
-     * @return  lpTokenBurn  True if LP tokens were burned, false otherwise.
-     */
-    function sync(address pair) public returns (bool lpTokenBurn, bool lastIsMint) {
-        uint256 lpSupplyNow = IERC20(pair).totalSupply();
-        lpTokenBurn = lpSupplyOfPair[pair] > lpSupplyNow;
-        lpSupplyOfPair[pair] = lpSupplyNow;
-
-        uint256 _balanceDXN = dxn.balanceOf(pair);
-        uint256 _balanceNXD = _balances[pair];
-
-        // Do not block after small liq additions
-        // you can only withdraw 350$ now with front running
-        // And cant front run buys with liq add ( adversary drain )
-
-        lastIsMint = _balanceNXD > lastSupplyOfNXDInPair && _balanceDXN > lastSupplyOfDXNInPair;
-
-        lastSupplyOfNXDInPair = _balanceNXD;
-        lastSupplyOfDXNInPair = _balanceDXN;
-    }
-
     function _transfer(address from, address to, uint256 value) internal {
         if (from == address(0)) {
             revert ERC20InvalidSender(address(0));
         }
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
-        }
-
-        if (from == address(uniswapV2Pair)) {
-            // might be burn, check LP supply
-            console.log("Pair sending tokens! This is buy or remove liquidity!");
-            (bool lpTokenBurn, bool lastIsMint) = sync(from);
-            if (lpTokenBurn || lastIsMint) {
-                revert NoLPWithdraw();
-            }
-        }
-        if (to == address(uniswapV2Pair)) {
-            console.log("NXDERC20: Pair receiving tokens! This is sell or add liquidity!");
-            // update LP supply
-            sync(to);
         }
 
         if (value > _balances[from]) {

@@ -87,16 +87,6 @@ contract NXDTokenTest is NXDShared {
         assertEq(expectedAmountAfterTax, amountAfterTax, "amountAfterTax should match");
     }
 
-    function testSync() public {
-        address uniswapV2Pair = address(nxd.uniswapV2Pair());
-        (bool isBurn, bool lastIsMint) = nxd.sync(uniswapV2Pair);
-        assertEq(isBurn, false, "isBurn should be false");
-        assertEq(isBurn, lastIsMint, "lastIsMint should be false");
-        // add 1000 because initial liqudity locked by uniswap
-        assertEq(nxd.lpSupplyOfPair(uniswapV2Pair), initialLiquiditySupply + 1000, "lpSupplyOfPair should match");
-    }
-
-
     uint256 devFeeBalanceBefore;
     uint256 expectedDevFeeAmount;
 
@@ -303,84 +293,4 @@ contract NXDTokenTest is NXDShared {
             "Bob DXN balance should decrease by expected Amount"
         );
     }
-
-    function testRevertWhenWithdrawLP() public {
-        uint256 amount = 1000 ether;
-
-        IUniswapV2Pair uniswapV2Pair = nxd.uniswapV2Pair();
-
-        vm.startPrank(bob);
-        dxn.approve(address(nxdProtocol), amount);
-        nxdProtocol.deposit(amount, 1, true);
-        // We now have NXD
-
-        (uint256 res0, uint256 res1,) = uniswapV2Pair.getReserves();
-        uint256 dxnAmountToAdd = UNISWAP_V2_ROUTER.quote(amount, res1, res0);
-
-        nxd.approve(address(UNISWAP_V2_ROUTER), amount);
-        dxn.approve(address(UNISWAP_V2_ROUTER), dxnAmountToAdd);
-
-        UNISWAP_V2_ROUTER.addLiquidity(
-            address(nxd), address(MAINNET_DXN), amount, dxnAmountToAdd, 0, 0, address(bob), block.timestamp
-        );
-        uint256 bobNXDBalanceBeforeWithdrawLP = nxd.balanceOf(address(bob));
-        uint256 bobDXNBalanceBeforeWithdrawLP = MAINNET_DXN.balanceOf(address(bob));
-
-        uint256 bobLPBalance = nxdDXNPair.balanceOf(address(bob));
-
-        nxdDXNPair.approve(address(UNISWAP_V2_ROUTER), bobLPBalance);
-
-        vm.expectRevert("UniswapV2: TRANSFER_FAILED");
-        UNISWAP_V2_ROUTER.removeLiquidity(
-            address(nxd), address(MAINNET_DXN), bobLPBalance, 0, 0, address(this), block.timestamp
-        );
-
-        assertEq(dxn.balanceOf(address(bob)), bobDXNBalanceBeforeWithdrawLP, "Bob DXN balance should not change");
-
-        assertEq(nxd.balanceOf(address(bob)), bobNXDBalanceBeforeWithdrawLP, "Bob NXD balance should not change");
-
-        assertEq(nxdDXNPair.balanceOf(address(bob)), bobLPBalance, "Bob LP balance should not change");
-    }
-
-    function testFuzz_RevertWhenWithdrawLP(uint256 amount) public {
-        vm.assume(amount < type(uint256).max / nxdProtocol.currentRate()); // ensure no overflow when calculating tax
-        vm.assume(amount <= nxd.MAX_REWARDS_SUPPLY());
-        vm.assume(amount >= 10000); // avoid UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED and zero values due to division by 10k
-        vm.assume(amount > 0);
-
-        IUniswapV2Pair uniswapV2Pair = nxd.uniswapV2Pair();
-
-        vm.startPrank(bob);
-        dxn.approve(address(nxdProtocol), amount);
-        nxdProtocol.deposit(amount, 1, true);
-        // We now have NXD
-
-        (uint256 res0, uint256 res1,) = uniswapV2Pair.getReserves();
-        uint256 dxnAmountToAdd = UNISWAP_V2_ROUTER.quote(amount, res1, res0);
-
-        nxd.approve(address(UNISWAP_V2_ROUTER), amount);
-        dxn.approve(address(UNISWAP_V2_ROUTER), dxnAmountToAdd);
-
-        UNISWAP_V2_ROUTER.addLiquidity(
-            address(nxd), address(MAINNET_DXN), amount, dxnAmountToAdd, 0, 0, address(bob), block.timestamp
-        );
-        uint256 bobNXDBalanceBeforeWithdrawLP = nxd.balanceOf(address(bob));
-        uint256 bobDXNBalanceBeforeWithdrawLP = MAINNET_DXN.balanceOf(address(bob));
-
-        uint256 bobLPBalance = nxdDXNPair.balanceOf(address(bob));
-
-        nxdDXNPair.approve(address(UNISWAP_V2_ROUTER), bobLPBalance);
-
-        vm.expectRevert("UniswapV2: TRANSFER_FAILED");
-        UNISWAP_V2_ROUTER.removeLiquidity(
-            address(nxd), address(MAINNET_DXN), bobLPBalance, 0, 0, address(this), block.timestamp
-        );
-
-        assertEq(dxn.balanceOf(address(bob)), bobDXNBalanceBeforeWithdrawLP, "Bob DXN balance should not change");
-
-        assertEq(nxd.balanceOf(address(bob)), bobNXDBalanceBeforeWithdrawLP, "Bob NXD balance should not change");
-
-        assertEq(nxdDXNPair.balanceOf(address(bob)), bobLPBalance, "Bob LP balance should not change");
-    }
-
 }
