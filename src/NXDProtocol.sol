@@ -372,8 +372,7 @@ contract NXDProtocol {
                 devAlloc = nxd.maxSupply() - totalNXDMinted;
             }
 
-            nxd.mintDevAlloc(address(this), devAlloc);
-            nxd.transfer(address(vesting), devAlloc);
+            nxd.mintDevAlloc(address(vesting), devAlloc);
             uint256 devAllocPerRecipient = devAlloc / recipients.length;
 
             for (uint256 i = 0; i < recipients.length; i++) {
