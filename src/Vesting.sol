@@ -8,6 +8,8 @@ contract Vesting {
     error AlreadySet();
     error Owner();
 
+    event VestingSet(address indexed user, uint256 amount);
+
     uint256 public constant VESTING_DURATION_SECS = 90 days;
 
     struct VestingSchedule {
@@ -47,7 +49,13 @@ contract Vesting {
         if (msg.sender != owner) {
             revert Owner();
         }
-        tokenAmountToVest[user] = VestingSchedule(amount, block.timestamp);
+        uint256 claimedAmt = claimed[user];
+
+        VestingSchedule storage vestingSchedule = tokenAmountToVest[user];
+        vestingSchedule.amount = vestingSchedule.amount + amount - claimedAmt;
+        vestingSchedule.startTimestamp = block.timestamp;
+
+        emit VestingSet(user, amount);
     }
 
     function claimable(address user) public view returns (uint256) {
