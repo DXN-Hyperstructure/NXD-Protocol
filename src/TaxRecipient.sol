@@ -34,20 +34,13 @@ contract TaxRecipient {
 
         // Add liquidity with remaining NXD and DXN
         ourDXNBalance = dxn.balanceOf(address(this));
-
+        uint256 ourNXDBalance = nxd.balanceOf(address(this));
         // Approve tokens
         dxn.approve(address(UNISWAP_V2_ROUTER), ourDXNBalance);
-        nxd.approve(address(UNISWAP_V2_ROUTER), nxd.balanceOf(address(this)));
+        nxd.approve(address(UNISWAP_V2_ROUTER), ourNXDBalance);
         // Add liquidity
         UNISWAP_V2_ROUTER.addLiquidity(
-            address(nxd),
-            address(dxn),
-            nxd.balanceOf(address(this)),
-            ourDXNBalance,
-            0,
-            0,
-            address(this),
-            block.timestamp
+            address(nxd), address(dxn), ourNXDBalance, ourDXNBalance, 0, 0, address(this), block.timestamp
         );
     }
 }
