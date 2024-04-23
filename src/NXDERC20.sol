@@ -363,6 +363,16 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         _mint(account, amount);
     }
 
+    function mintDevAlloc(address account, uint256 amount) external {
+        if (msg.sender != protocol) {
+            revert Unauthorized();
+        }
+        if (totalSupply() + amount > maxSupply) {
+            revert MaxSupply();
+        }
+        _mint(account, amount);
+    }
+
     /**
      * @dev     Returns the amount after tax and the tax amount. Whitelist is:
      *          - When sender is this contract: To be able to swap NXD to DXN in `_transfer_ function.
