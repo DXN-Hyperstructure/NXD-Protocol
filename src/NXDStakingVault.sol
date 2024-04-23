@@ -251,6 +251,9 @@ contract NXDStakingVault {
         WithdrawalRequest storage request = withdrawalRequests[_pid][msg.sender];
 
         if (_amount > 0) {
+            if (block.timestamp >= request.canWithdrawAfterTimestamp && request.canWithdrawAfterTimestamp != 0) {
+                withdrawCooldown(_pid);
+            }
             // Stop receiving rewards for this amount NOW
             user.amount = user.amount - _amount;
 
@@ -287,7 +290,7 @@ contract NXDStakingVault {
      * @notice  Withdraws the amount requested if the cooldown period has passed. If the user has not requested a withdrawal or the cooldown period has not passed, the function reverts.
      * @param   _pid  The pool id.
      */
-    function withdrawCooldown(uint256 _pid) external {
+    function withdrawCooldown(uint256 _pid) public {
         PoolInfo storage pool = poolInfo[_pid];
         WithdrawalRequest storage request = withdrawalRequests[_pid][msg.sender];
         if (request.canWithdrawAfterTimestamp == 0 || request.amount == 0) {
