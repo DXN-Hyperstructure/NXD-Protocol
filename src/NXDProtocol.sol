@@ -338,7 +338,7 @@ contract NXDProtocol {
         }
     }
     /**
-     * @dev     Stakes our DXN in the DBXen contract. Can be called by anyone. Having this in the receive() function will cause a ReentrancyGuardReentrantCall error.
+     * @dev    Mints NXD for the dev allocation and distributes it to the recipients. Can only be called by the devAllocMinter.
      */
 
     function mintDevAlloc(address[] memory recipients) public {
