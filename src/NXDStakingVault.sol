@@ -121,7 +121,7 @@ contract NXDStakingVault {
 
         totalAllocPoint = totalAllocPoint + _allocPoint;
 
-        PoolInfo storage _poolInfo = poolInfo[numPools];
+        PoolInfo storage _poolInfo = poolInfo[length];
 
         _poolInfo.token = _token;
         _poolInfo.allocPoint = _allocPoint;
@@ -130,7 +130,7 @@ contract NXDStakingVault {
 
         numPools += 1;
 
-        emit Add(address(_token), numPools - 1, _allocPoint, _withdrawable);
+        emit Add(address(_token), length, _allocPoint, _withdrawable);
     }
 
     // View function to see pending ETHs on frontend.
