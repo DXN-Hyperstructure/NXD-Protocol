@@ -100,6 +100,8 @@ contract NXDProtocol {
 
     address public devAllocMinter;
 
+    uint256 public totalUnclaimedReferralRewards;
+
     constructor(
         uint256 initialSupply,
         address _dbxen,
@@ -218,9 +220,13 @@ contract NXDProtocol {
         }
 
         // Check that amounts do not exceed max supply
-        if (nxd.totalSupply() + amountReceived + referrerAmount > nxd.maxSupply() - nxd.MAX_DEV_ALLOC()) {
+        if (
+            nxd.totalSupply() + amountReceived + referrerAmount + userBonusAmount
+                > nxd.maxSupply() - nxd.MAX_DEV_ALLOC() - totalUnclaimedReferralRewards
+        ) {
             // Change the _amount to the amount that can be minted without exceeding max supply
-            uint256 remainingSupply = nxd.maxSupply() - nxd.totalSupply() - nxd.MAX_DEV_ALLOC();
+            uint256 remainingSupply =
+                nxd.maxSupply() - nxd.totalSupply() - nxd.MAX_DEV_ALLOC() - totalUnclaimedReferralRewards;
             if (remainingSupply == 0 || !_allowDynamicAmount) {
                 revert NXDMaxSupplyMinted();
             }
@@ -247,6 +253,8 @@ contract NXDProtocol {
 
         referrerRewards[referrer] += referrerAmount;
         referredRewards[msg.sender] += userBonusAmount;
+
+        totalUnclaimedReferralRewards += referrerAmount + userBonusAmount;
 
         userTotalMintedNoBonus[msg.sender] += amountReceived;
 
@@ -320,6 +328,7 @@ contract NXDProtocol {
         if (amount == 0) {
             revert NoRewards();
         }
+        totalUnclaimedReferralRewards -= amount;
         referrerRewards[msg.sender] = 0;
         referredRewards[msg.sender] = 0;
         nxd.mint(msg.sender, amount);
@@ -347,8 +356,8 @@ contract NXDProtocol {
             revert CSPOngoing();
         }
 
-        uint256 totalNXDMinted = nxd.totalSupply();
-        // dev alloc is 2.04% of total supply
+        uint256 totalNXDMinted = nxd.totalSupply() + totalUnclaimedReferralRewards;
+        // dev alloc is 2% of total minted
         console.log("mintDevAlloc totalNXDMinted = ", totalNXDMinted);
         uint256 devAlloc = ((totalNXDMinted * 10000) / 9800) - totalNXDMinted;
         console.log("mintDevAlloc devAlloc = ", devAlloc);
