@@ -436,8 +436,8 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
             console.log("NXDERC20: tax recipient received %s DXN", dxn.balanceOf(address(taxRecipient)));
 
-            // We now have DXN, add liquidity to NXD/DXN pair
-            uint256 remainingTax = taxAmount - sellNXDAmount; // 30%
+            // We now have DXN
+            uint256 remainingTax = taxAmount - sellNXDAmount; // 60%
             uint256 burnAmount = (taxAmount * 4000) / 10000; // 2% of all tax. 2/5% of tax amount
             uint256 devFeeAmount = (taxAmount * 1000) / 10000; // 10% of all tax. 0.5/5% of tax amount
 
