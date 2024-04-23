@@ -1,7 +1,6 @@
 pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "forge-std/console.sol";
 import "./interfaces/IDBXen.sol";
 // import "./v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
@@ -242,13 +241,6 @@ contract NXDProtocol {
             _amount = (amountReceived * 1e18) / _currentRate;
             // Recalculate bonuses
             (referrerAmount, userBonusAmount) = getReferralBonuses(amountReceived);
-            console.log("_amount: %s", _amount);
-            console.log("amountReceived: %s", amountReceived);
-            console.log("referrerAmount: %s", referrerAmount);
-            console.log("userBonusAmount: %s", userBonusAmount);
-            console.log(
-                "amountReceived+referrerAmount+userBonusAmount: %s", amountReceived + referrerAmount + userBonusAmount
-            );
         }
 
         referrerRewards[referrer] += referrerAmount;
@@ -363,9 +355,7 @@ contract NXDProtocol {
 
         uint256 totalNXDMinted = nxd.totalSupply() + totalUnclaimedReferralRewards;
         // dev alloc is 2% of total minted
-        console.log("mintDevAlloc totalNXDMinted = ", totalNXDMinted);
         uint256 devAlloc = ((totalNXDMinted * 10000) / 9800) - totalNXDMinted;
-        console.log("mintDevAlloc devAlloc = ", devAlloc);
 
         if (devAlloc > 0) {
             if (devAlloc + totalNXDMinted > nxd.maxSupply()) {
@@ -402,7 +392,6 @@ contract NXDProtocol {
         uint256 ethToSwapForDXN = (address(this).balance * 8500) / 10000;
 
         uint256 dxnPriceNow = v3Oracle.getHumanQuote(DXN_WETH_POOL, 0, 1 ether, address(dxn), WETH9);
-        console.log("Before Swap: 1 DXN = %s ETH", dxnPriceNow);
         uint256 quote = v3Oracle.getHumanQuote(DXN_WETH_POOL, 5 minutes, 1 ether, WETH9, address(dxn));
         uint256 minOut = (ethToSwapForDXN * quote) / 1e18;
         // - 3%
@@ -420,7 +409,6 @@ contract NXDProtocol {
 
         // Sell DXN for NXD. Sell (50/85) % of DXN received. (50% of total ETH received)
         uint256 dxnToSwapForNXD = (dxnAmountReceived * 58823529) / 100000000;
-        console.log("dxnToSwapForNXD = ", dxnToSwapForNXD);
         if (v2Oracle.canUpdate()) {
             v2Oracle.update();
         }
@@ -441,13 +429,11 @@ contract NXDProtocol {
             revert GotNothing();
         }
         pendingDXNToStake += dxn.balanceOf(address(this));
-        console.log("pendingDXNToStake after swap", pendingDXNToStake);
 
         // Burn our NXD
         uint256 nxdToBurn = nxd.balanceOf(address(this));
         nxd.transfer(DEADBEEF, nxdToBurn);
         uint256 ethToStakingVault = address(this).balance;
-        console.log("Sending %S ETH to Staking Vault: ", address(this).balance);
         // Send remaining ETH to the NXD Staking Vault
         (bool sent,) = address(nxdStakingVault).call{value: address(this).balance}("");
         if (!sent) {

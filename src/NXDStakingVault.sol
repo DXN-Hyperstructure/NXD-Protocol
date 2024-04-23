@@ -1,7 +1,7 @@
 pragma solidity >=0.8.0;
 
-import "forge-std/console.sol";
 import "./interfaces/INXDProtocol.sol";
+
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -137,11 +137,9 @@ contract NXDStakingVault {
 
     // Update reward vairables for all pools. Be careful of gas spending!
     function massUpdatePools() public {
-        console.log("Mass Updating Pools");
         uint256 length = numPools;
         uint256 allRewards;
         for (uint256 pid = 0; pid < length; ++pid) {
-            console.log("massUpdatePools pid = ", pid);
             allRewards = allRewards + updatePool(pid);
         }
 
@@ -149,10 +147,7 @@ contract NXDStakingVault {
     }
 
     function addPendingRewards() public {
-        console.log("addPendingRewards address(this).balance =", address(this).balance);
-        console.log("addPendingRewards ourETHBalance =", ourETHBalance);
         uint256 newRewards = address(this).balance - ourETHBalance;
-        console.log("addPendingRewards newRewards =", newRewards);
 
         if (newRewards > 0) {
             ourETHBalance = address(this).balance; // If there is no change the balance didn't change
@@ -162,7 +157,6 @@ contract NXDStakingVault {
 
     // Update reward variables of the given pool to be up-to-date.
     function updatePool(uint256 _pid) internal returns (uint256 ethReward) {
-        console.log("updatePool _pid = ", _pid);
         PoolInfo storage pool = poolInfo[_pid];
 
         uint256 tokenSupply = pool.token.balanceOf(address(this));
@@ -170,21 +164,16 @@ contract NXDStakingVault {
             // avoids division by 0 errors
             return 0;
         }
-        console.log("updatePool tokenSupply = ", tokenSupply);
         ethReward = (pendingRewards * pool.allocPoint) // Multiplies pending rewards by allocation point of this pool and then total allocation
             // getting the percent of total pending rewards this pool should get
             / totalAllocPoint; // we can do this because pools are only mass updated
-        console.log("updatePool ethReward = ", ethReward);
         pool.accEthPerShare += ((ethReward * 1e12) / tokenSupply);
-        console.log("updatePool pool.accEthPerShare = ", pool.accEthPerShare);
     }
 
     // Deposit NXD tokens to NXDStakingVault for ETH allocation.
     function deposit(uint256 _pid, uint256 _amount) public lock {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
-
-        console.log("NXDStakingVault: user depositing %s tokens", _amount);
 
         massUpdatePools();
 
@@ -335,14 +324,11 @@ contract NXDStakingVault {
 
     // Safe eth transfer function
     function safeETHTransfer(address _to, uint256 _amount) internal {
-        console.log("safeETHTransfer Sending %s ETH now", _amount);
-        console.log("safeETHTransfer Our balance before : %s", address(this).balance);
         (bool sent,) = _to.call{value: _amount}("");
         if (!sent) {
             revert SendETHFail();
         }
         ourETHBalance = address(this).balance;
-        console.log("safeETHTransfer Our balance after : %s", address(this).balance);
 
         //Avoids possible recursion loop
         // proxy?
@@ -352,7 +338,6 @@ contract NXDStakingVault {
      * @dev Receives ETH from NXDProtocol and updates pending rewards.
      */
     receive() external payable {
-        console.log("NXDStakingVault: Received %s ETH", msg.value);
         addPendingRewards();
     }
 }

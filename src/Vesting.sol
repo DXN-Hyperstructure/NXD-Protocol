@@ -67,7 +67,6 @@ contract Vesting {
         if (elapsed == 0) {
             return 0;
         }
-        console.log("Vesting: claimable: elapsed = ", elapsed);
         if (elapsed >= VESTING_DURATION_SECS) {
             return vestingSchedule.amount - claimed[user];
         }

@@ -11,7 +11,6 @@ import "./interfaces/IV2Oracle.sol";
 import "./interfaces/INXDProtocol.sol";
 import "./TaxRecipient.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import "forge-std/console.sol";
 
 interface IUniV2Factory {
     function getPair(address tokenA, address tokenB) external view returns (address pair);
@@ -407,8 +406,6 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
         _balances[from] -= value;
         (uint256 amountAfterTax, uint256 taxAmount) = getAmountsAfterTax(from, to, value);
-        console.log("NXDERC20: Amount after tax: %s", amountAfterTax);
-        console.log("NXDERC20: taxAmount: %s", taxAmount);
         if (taxAmount > 0) {
             // NXD burn - 2.0%
             // DXN buy and stake - 1.5%
@@ -435,16 +432,10 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
                 sellNXDAmount, amountOutMin, nxdDXNPath, address(taxRecipient), block.timestamp
             );
 
-            console.log("NXDERC20: tax recipient received %s DXN", dxn.balanceOf(address(taxRecipient)));
-
             // We now have DXN
             uint256 remainingTax = taxAmount - sellNXDAmount; // 60%
             uint256 burnAmount = (taxAmount * 4000) / 10000; // 2% of all tax. 2/5% of tax amount
             uint256 devFeeAmount = (taxAmount * 1000) / 10000; // 10% of all tax. 0.5/5% of tax amount
-
-            console.log("NXDERC20: remainingTax = ", remainingTax);
-            console.log("NXDERC20: burnAmount = ", burnAmount);
-            console.log("NXDERC20: Expected NXD amount to add to liq= ", remainingTax - burnAmount);
 
             _balances[address(this)] -= remainingTax;
 
