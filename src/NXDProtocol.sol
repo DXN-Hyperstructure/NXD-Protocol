@@ -399,7 +399,7 @@ contract NXDProtocol {
         // • 15% NXD Staking Vault
         // • 5% Buy & Burn DXN
 
-        // Buy DXN with 85% of ETH received. 30% to Buy & Stake DXN + 50% to Buy & Burn NXD + 5% to Buy & Burn DXN
+        // Buy DXN & NXD with 85%. 30% to Buy & Stake DXN + 50% to Buy & Burn NXD + 5% to Buy & Burn DXN
         uint256 ethToSwapForDXN = (address(this).balance * 8500) / 10000;
 
         uint256 dxnPriceNow = v3Oracle.getHumanQuote(DXN_WETH_POOL, 0, 1 ether, address(dxn), WETH9);
