@@ -36,10 +36,18 @@ contract NXDProtocol {
     error NXDMaxSupplyMinted();
     error NotAuthorized();
 
-    event PoolCreated(uint256 nxdDesired, uint256 dxnDesired);
+    event PoolCreated(address uniswapV2Pair, uint256 nxdDesired, uint256 dxnDesired);
     event Deposit(address indexed from, uint256 amount, uint256 amountReceived, uint256 referralCode);
     event ReferralCodeSet(uint256 referralCode, address indexed user);
     event ReferralRewardsWithdrawn(address indexed user, uint256 amount);
+    event HandleRewards(
+        uint256 ethReceived,
+        uint256 dxnAmountReceived,
+        uint256 dxnBurned,
+        uint256 dxnToStake,
+        uint256 nxdBurned,
+        uint256 ethToStakingVault
+    );
 
     IERC20 public dxn = block.chainid == 11155111
         ? IERC20(0x9d5DD5d3781e758199b9952f70Ede1832e56c985) // DXN token
@@ -142,10 +150,11 @@ contract NXDProtocol {
             UNISWAP_V2_ROUTER.addLiquidity(address(nxd), address(dxn), nxdDesired, dxnDesired, 0, 0, to, deadline);
         // Initialize the V2Oracle contract
         v2Oracle = new V2Oracle(UNISWAP_V2_FACTORY, address(nxd), address(dxn));
+        address uniswapV2Pair = IUniswapV2Factory(UNISWAP_V2_FACTORY).getPair(address(nxd), address(dxn));
         // Set the pair and oracle for the NXD contract
-        nxd.setUniswapV2Pair(IUniswapV2Factory(UNISWAP_V2_FACTORY).getPair(address(nxd), address(dxn)));
+        nxd.setUniswapV2Pair(uniswapV2Pair);
         nxd.setV2Oracle(address(v2Oracle));
-        emit PoolCreated(nxdDesired, dxnDesired);
+        emit PoolCreated(uniswapV2Pair, nxdDesired, dxnDesired);
     }
 
     /**
@@ -422,14 +431,17 @@ contract NXDProtocol {
         console.log("pendingDXNToStake after swap", pendingDXNToStake);
 
         // Burn our NXD
-        nxd.transfer(DEADBEEF, nxd.balanceOf(address(this)));
-
+        uint256 nxdToBurn = nxd.balanceOf(address(this));
+        nxd.transfer(DEADBEEF, nxdToBurn);
+        uint256 ethToStakingVault = address(this).balance;
         console.log("Sending %S ETH to Staking Vault: ", address(this).balance);
         // Send remaining ETH to the NXD Staking Vault
         (bool sent,) = address(nxdStakingVault).call{value: address(this).balance}("");
         if (!sent) {
             revert SendETHFail();
         }
+
+        emit HandleRewards(msg.value, dxnAmountReceived, dxnToBurn, pendingDXNToStake, nxdToBurn, ethToStakingVault);
         // nxdStakingVault.addPendingRewards();
     }
 }

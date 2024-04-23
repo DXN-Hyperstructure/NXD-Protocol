@@ -103,8 +103,8 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         address _vesting,
         address _devFeeTo
     ) {
-        _name = block.chainid == 1? "NXD Token":"";
-        _symbol = block.chainid == 1? "NXD":"";
+        _name = block.chainid == 1 ? "NXD Token" : "";
+        _symbol = block.chainid == 1 ? "NXD" : "";
 
         protocol = msg.sender;
         devFeeTo = _devFeeTo;
@@ -142,7 +142,6 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         }
         v2Oracle = IV2Oracle(_v2Oracle);
     }
-
 
     function updateTaxWhitelist(address account, bool whenSender, bool whenRecipient) external {
         // Only governance or protocol can update tax whitelist
@@ -475,7 +474,6 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
             console.log("NXDERC20: remainingTax = ", remainingTax);
             console.log("NXDERC20: burnAmount = ", burnAmount);
             console.log("NXDERC20: Expected NXD amount to add to liq= ", remainingTax - burnAmount);
-            // console.log("NXDERC20: burnAmount / taxAmount = ", (burnAmount * 1e18) / taxAmount);
 
             _balances[address(this)] -= remainingTax;
 
