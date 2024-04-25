@@ -102,4 +102,4 @@ Read more about Fonudry scripts [here](https://book.getfoundry.sh/tutorials/soli
 
 ## Audit
 
-Will be updated soon.
+Read more about the audit by The Arcadia Group here: https://github.com/TheArcadiaGroup/publications/blob/main/audits/NXDFinal.pdf 
