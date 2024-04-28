@@ -10,7 +10,6 @@ import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IV2Oracle.sol";
 import "./interfaces/INXDProtocol.sol";
 import "./TaxRecipient.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 
 interface IUniV2Factory {
     function getPair(address tokenA, address tokenB) external view returns (address pair);
@@ -59,10 +58,13 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
     mapping(address => uint256) public lpSupplyOfPair;
 
-    IUniV2Factory public UNISWAP_V2_FACTORY = IUniV2Factory(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
-    IUniswapV2Router02 public UNISWAP_V2_ROUTER = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+    IUniV2Factory public UNISWAP_V2_FACTORY = block.chainid == 11155111
+        ? IUniV2Factory(0xdAF1b15AC3CA069Bf811553170Bad5b23342A4D6)
+        : IUniV2Factory(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
 
-    IUniswapV3Factory public UNISWAP_V3_FACTORY = IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984);
+    IUniswapV2Router02 public UNISWAP_V2_ROUTER = block.chainid == 11155111
+        ? IUniswapV2Router02(0x42f6460304545B48E788F6e8478Fbf5E7dd7CDe0)
+        : IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
     IUniswapV2Pair public uniswapV2Pair;
     IV2Oracle public v2Oracle;
@@ -82,6 +84,8 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
     address public governance;
 
     address public devFeeTo;
+
+    uint256 public totalNXDBurned;
 
     modifier onlyGovernance() {
         if (msg.sender != governance) {
@@ -441,6 +445,7 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
             // Burn 10% from tax amount
             _balances[0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF] += burnAmount;
+            totalNXDBurned += burnAmount;
             emit Transfer(address(this), 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF, burnAmount);
             _balances[devFeeTo] += devFeeAmount;
             emit Transfer(address(this), devFeeTo, devFeeAmount);

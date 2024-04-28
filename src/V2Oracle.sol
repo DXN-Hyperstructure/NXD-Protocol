@@ -207,7 +207,7 @@ contract V2Oracle {
 
     uint256 public constant PERIOD = 5 minutes;
 
-    IUniswapV2PairLocal immutable pair;
+    IUniswapV2PairLocal public immutable pair;
     address public immutable token0;
     address public immutable token1;
 
@@ -218,7 +218,8 @@ contract V2Oracle {
     FixedPoint.uq112x112 public price1Average;
 
     constructor(address factory, address tokenA, address tokenB) {
-        IUniswapV2PairLocal _pair = IUniswapV2PairLocal(IUniswapV2Factory(factory).getPair(address(tokenA), address(tokenB)));
+        IUniswapV2PairLocal _pair =
+            IUniswapV2PairLocal(IUniswapV2Factory(factory).getPair(address(tokenA), address(tokenB)));
         pair = _pair;
         token0 = _pair.token0();
         token1 = _pair.token1();

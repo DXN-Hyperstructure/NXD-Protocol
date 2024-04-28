@@ -82,6 +82,39 @@ contract NXDStakingVault {
     // keep track of latest known eth balance. used to determine new rewards
     uint256 public ourETHBalance;
     bool public locked;
+    uint256 public nxdPenaltyBurned;
+    uint256 public totalStaked;
+    // variables used to calculate rewards apy
+    uint256 public contractStartBlock;
+    uint256 public epochCalculationStartBlock;
+    uint256 public cumulativeRewardsSinceStart;
+    uint256 public rewardsInThisEpoch;
+    uint256 public epoch;
+
+    // Returns fees generated since start of this contract
+    function averageFeesPerBlockSinceStart() external view returns (uint256 averagePerBlock) {
+        averagePerBlock = (cumulativeRewardsSinceStart + rewardsInThisEpoch) / (block.number - (contractStartBlock));
+    }
+
+    // Returns averge fees in this epoch
+    function averageFeesPerBlockEpoch() external view returns (uint256 averagePerBlock) {
+        averagePerBlock = rewardsInThisEpoch / (block.number - epochCalculationStartBlock);
+    }
+
+    // For easy graphing historical epoch rewards
+    mapping(uint256 => uint256) public epochRewards;
+
+    //Starts a new calculation epoch
+    // Because averge since start will not be accurate
+    function startNewEpochIfReady() public {
+        if (epochCalculationStartBlock + 50000 < block.number) {
+            epochRewards[epoch] = rewardsInThisEpoch;
+            cumulativeRewardsSinceStart += rewardsInThisEpoch;
+            rewardsInThisEpoch = 0;
+            epochCalculationStartBlock = block.number;
+            ++epoch;
+        }
+    }
 
     // Reentrancy lock
     modifier lock() {
@@ -97,6 +130,8 @@ contract NXDStakingVault {
         nxd = _nxd;
         nxdProtocol = INXDProtocol(msg.sender);
         _add(100, _nxd, false, true);
+        contractStartBlock = block.number;
+        startNewEpochIfReady();
     }
 
     // Add a new token pool. Can only be when contract is deployed.
@@ -147,11 +182,13 @@ contract NXDStakingVault {
     }
 
     function addPendingRewards() public {
+        startNewEpochIfReady();
         uint256 newRewards = address(this).balance - ourETHBalance;
 
         if (newRewards > 0) {
             ourETHBalance = address(this).balance; // If there is no change the balance didn't change
             pendingRewards = pendingRewards + newRewards;
+            rewardsInThisEpoch += newRewards;
         }
     }
 
@@ -159,15 +196,14 @@ contract NXDStakingVault {
     function updatePool(uint256 _pid) internal returns (uint256 ethReward) {
         PoolInfo storage pool = poolInfo[_pid];
 
-        uint256 tokenSupply = pool.token.balanceOf(address(this));
-        if (tokenSupply == 0) {
+        if (totalStaked == 0) {
             // avoids division by 0 errors
             return 0;
         }
         ethReward = (pendingRewards * pool.allocPoint) // Multiplies pending rewards by allocation point of this pool and then total allocation
             // getting the percent of total pending rewards this pool should get
             / totalAllocPoint; // we can do this because pools are only mass updated
-        pool.accEthPerShare += ((ethReward * 1e12) / tokenSupply);
+        pool.accEthPerShare += ((ethReward * 1e12) / totalStaked);
     }
 
     // Deposit NXD tokens to NXDStakingVault for ETH allocation.
@@ -186,6 +222,7 @@ contract NXDStakingVault {
         if (_amount > 0) {
             pool.token.safeTransferFrom(address(msg.sender), address(this), _amount);
             user.amount += _amount;
+            totalStaked += _amount;
         }
 
         user.rewardDebt = (user.amount * pool.accEthPerShare) / 1e12;
@@ -209,6 +246,7 @@ contract NXDStakingVault {
         if (_amount > 0) {
             pool.token.safeTransferFrom(address(msg.sender), address(this), _amount);
             user.amount += _amount; // This is depositedFor address
+            totalStaked += _amount;
         }
 
         user.rewardDebt = (user.amount * pool.accEthPerShare) / 1e12;
@@ -245,6 +283,7 @@ contract NXDStakingVault {
             }
             // Stop receiving rewards for this amount NOW
             user.amount = user.amount - _amount;
+            totalStaked -= _amount;
 
             if (acceptsPenalty) {
                 userGetsAfterPenalty = (_amount * 7500) / 10000;
@@ -267,7 +306,9 @@ contract NXDStakingVault {
 
             // Burn penalty amount
             if (userGetsAfterPenalty < _amount) {
-                nxd.transfer(0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF, _amount - userGetsAfterPenalty);
+                uint256 amountToBurn = _amount - userGetsAfterPenalty;
+                nxd.transfer(0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF, amountToBurn);
+                nxdPenaltyBurned += amountToBurn;
             }
         }
         user.rewardDebt = (user.amount * pool.accEthPerShare) / 1e12;

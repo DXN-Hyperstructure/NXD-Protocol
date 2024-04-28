@@ -10,8 +10,17 @@ contract TaxRecipient {
 
     IERC20 public immutable nxd;
     address public immutable protocol;
-    IERC20 public constant dxn = IERC20(0x80f0C1c49891dcFDD40b6e0F960F84E6042bcB6F); // DXN token
-    IUniswapV2Router02 public UNISWAP_V2_ROUTER = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+    IERC20 public dxn = block.chainid == 11155111
+        ? IERC20(0x24AEdC58Ec49861EC31dd01BE1b9E176ce2529e6) // DXN token
+        : IERC20(0x80f0C1c49891dcFDD40b6e0F960F84E6042bcB6F);
+
+    IUniswapV2Router02 public UNISWAP_V2_ROUTER = block.chainid == 11155111
+        ? IUniswapV2Router02(0x42f6460304545B48E788F6e8478Fbf5E7dd7CDe0)
+        : IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+
+    uint256 public nxdAddedToLp;
+    uint256 public dxnAddedToLp;
+    uint256 public dxnStaked;
 
     constructor(address _protocol) {
         nxd = IERC20(msg.sender);
@@ -31,6 +40,7 @@ contract TaxRecipient {
         // Stake 8% of total tax after swap to DXN
         dxn.approve(protocol, dxnToStake);
         INXDProtocol(protocol).depositNoMint(dxnToStake);
+        dxnStaked += dxnToStake;
 
         // Add liquidity with remaining NXD and DXN
         ourDXNBalance = dxn.balanceOf(address(this));
@@ -39,8 +49,10 @@ contract TaxRecipient {
         dxn.approve(address(UNISWAP_V2_ROUTER), ourDXNBalance);
         nxd.approve(address(UNISWAP_V2_ROUTER), ourNXDBalance);
         // Add liquidity
-        UNISWAP_V2_ROUTER.addLiquidity(
+        (uint256 amountA, uint256 amountB,) = UNISWAP_V2_ROUTER.addLiquidity(
             address(nxd), address(dxn), ourNXDBalance, ourDXNBalance, 0, 0, address(this), block.timestamp
         );
+        nxdAddedToLp += amountA;
+        dxnAddedToLp += amountB;
     }
 }

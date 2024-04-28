@@ -2,9 +2,7 @@ pragma solidity ^0.8.13;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IDBXen.sol";
-// import "./v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "@uniswap/v3-periphery/contracts/SwapRouter.sol";
 import "./interfaces/IV3Oracle.sol";
 
 import "./interfaces/INXDStakingVault.sol";
@@ -13,7 +11,6 @@ import "./NXDERC20.sol";
 import "./NXDStakingVault.sol";
 import "./Vesting.sol";
 import "./dbxen/interfaces/IDBXenViews.sol";
-// import "./uniswapv2/interfaces/IUniswapV2Factory.sol";
 
 /**
  * @dev     Implementation of a fundraiser contract for the NXD Protocol.
@@ -49,7 +46,7 @@ contract NXDProtocol {
     );
 
     IERC20 public dxn = block.chainid == 11155111
-        ? IERC20(0x9d5DD5d3781e758199b9952f70Ede1832e56c985) // DXN token
+        ? IERC20(0x24AEdC58Ec49861EC31dd01BE1b9E176ce2529e6) // DXN token
         : IERC20(0x80f0C1c49891dcFDD40b6e0F960F84E6042bcB6F);
 
     IDBXen public immutable dbxen;
@@ -58,7 +55,9 @@ contract NXDProtocol {
 
     NXDStakingVault public immutable nxdStakingVault;
 
-    ISwapRouter public UNISWAP_V3_ROUTER = ISwapRouter(payable(0xE592427A0AEce92De3Edee1F18E0157C05861564));
+    ISwapRouter public UNISWAP_V3_ROUTER = block.chainid == 11155111
+        ? ISwapRouter(payable(0x3a71158eb1f7ec993510d4628402062CD919B665))
+        : ISwapRouter(payable(0xE592427A0AEce92De3Edee1F18E0157C05861564));
 
     IUniswapV2Router02 public UNISWAP_V2_ROUTER = block.chainid == 11155111
         ? IUniswapV2Router02(0x42f6460304545B48E788F6e8478Fbf5E7dd7CDe0)
@@ -100,6 +99,12 @@ contract NXDProtocol {
     address public devAllocMinter;
 
     uint256 public totalUnclaimedReferralRewards;
+
+    uint256 public totalDXNDepositedLMP;
+    uint256 public totalNXDBurned;
+    uint256 public totalDXNStaked;
+    uint256 public totalDXNBurned;
+    uint256 public totalETHToStakingVault;
 
     constructor(
         uint256 initialSupply,
@@ -250,6 +255,8 @@ contract NXDProtocol {
 
         userTotalMintedNoBonus[msg.sender] += amountReceived;
 
+        totalDXNDepositedLMP += _amount;
+
         _transferFromAndStake(_amount);
 
         nxd.mint(msg.sender, amountReceived);
@@ -336,6 +343,7 @@ contract NXDProtocol {
             pendingDXNToStake = 0;
             dxn.approve(address(dbxen), amount);
             dbxen.stake(amount);
+            totalDXNStaked += amount;
         }
     }
 
@@ -391,7 +399,6 @@ contract NXDProtocol {
         // Buy DXN & NXD with 85%. 30% to Buy & Stake DXN + 50% to Buy & Burn NXD + 5% to Buy & Burn DXN
         uint256 ethToSwapForDXN = (address(this).balance * 8500) / 10000;
 
-        uint256 dxnPriceNow = v3Oracle.getHumanQuote(DXN_WETH_POOL, 0, 1 ether, address(dxn), WETH9);
         uint256 quote = v3Oracle.getHumanQuote(DXN_WETH_POOL, 5 minutes, 1 ether, WETH9, address(dxn));
         uint256 minOut = (ethToSwapForDXN * quote) / 1e18;
         // - 3%
@@ -406,7 +413,7 @@ contract NXDProtocol {
         uint256 dxnToBurn = (dxnAmountReceived * 11111111) / 100000000;
 
         dxn.transfer(DEADBEEF, dxnToBurn);
-
+        totalDXNBurned += dxnToBurn;
         // Sell DXN for NXD. Sell (50/85) % of DXN received. (50% of total ETH received)
         uint256 dxnToSwapForNXD = (dxnAmountReceived * 58823529) / 100000000;
         if (v2Oracle.canUpdate()) {
@@ -433,7 +440,9 @@ contract NXDProtocol {
         // Burn our NXD
         uint256 nxdToBurn = nxd.balanceOf(address(this));
         nxd.transfer(DEADBEEF, nxdToBurn);
+        totalNXDBurned += nxdToBurn;
         uint256 ethToStakingVault = address(this).balance;
+        totalETHToStakingVault += ethToStakingVault;
         // Send remaining ETH to the NXD Staking Vault
         (bool sent,) = address(nxdStakingVault).call{value: address(this).balance}("");
         if (!sent) {
@@ -441,6 +450,5 @@ contract NXDProtocol {
         }
 
         emit HandleRewards(msg.value, dxnAmountReceived, dxnToBurn, pendingDXNToStake, nxdToBurn, ethToStakingVault);
-        // nxdStakingVault.addPendingRewards();
     }
 }
