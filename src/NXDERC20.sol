@@ -87,6 +87,48 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
     uint256 public totalNXDBurned;
 
+    // variables used to calculate rewards apy
+    uint256 public contractStartBlock;
+    uint256 public epochCalculationStartBlock;
+    uint256 public epoch;
+
+    // Returns burns since start of this contract
+    function averageBurnedPerBlockSinceStart() external view returns (uint256 averagePerBlock) {
+        uint256 burnedInThisEpoch =
+            _balances[0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF] - totalBurnAddressBalUpToLastEpoch;
+        averagePerBlock = (totalBurnAddressBalUpToLastEpoch + burnedInThisEpoch) / (block.number - (contractStartBlock));
+    }
+
+    // Returns averge burned in this epoch
+    function averageBurnedPerBlockEpoch() external view returns (uint256 averagePerBlock) {
+        uint256 burnedInThisEpoch =
+            _balances[0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF] - totalBurnAddressBalUpToLastEpoch;
+        averagePerBlock = burnedInThisEpoch / (block.number - epochCalculationStartBlock);
+    }
+
+    struct EpochBurn {
+        uint256 burned;
+        uint256 totalSupply;
+    }
+
+    // For easy graphing historical epoch burns
+    mapping(uint256 => EpochBurn) public epochBurns;
+
+    uint256 public totalBurnAddressBalUpToLastEpoch;
+
+    //Starts a new calculation epoch
+    // Because averge since start will not be accurate
+    function startNewEpochIfReady() public {
+        if (epochCalculationStartBlock + 50000 < block.number) {
+            uint256 burnedInThisEpoch =
+                _balances[0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF] - totalBurnAddressBalUpToLastEpoch;
+            totalBurnAddressBalUpToLastEpoch = _balances[0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF];
+            epochBurns[epoch] = EpochBurn(burnedInThisEpoch, _totalSupply);
+            epochCalculationStartBlock = block.number;
+            ++epoch;
+        }
+    }
+
     modifier onlyGovernance() {
         if (msg.sender != governance) {
             revert Unauthorized();
@@ -125,6 +167,9 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
         _updateTaxWhitelist(address(taxRecipient), true, false);
         _updateTaxWhitelist(protocol, true, true);
         _updateTaxWhitelist(_vesting, true, true);
+
+        contractStartBlock = block.number;
+        startNewEpochIfReady();
     }
 
     function setUniswapV2Pair(address _uniswapV2Pair) external {
@@ -443,9 +488,12 @@ contract NXDERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
 
             _balances[address(this)] -= remainingTax;
 
+            startNewEpochIfReady();
             // Burn 10% from tax amount
             _balances[0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF] += burnAmount;
+
             totalNXDBurned += burnAmount;
+
             emit Transfer(address(this), 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF, burnAmount);
             _balances[devFeeTo] += devFeeAmount;
             emit Transfer(address(this), devFeeTo, devFeeAmount);

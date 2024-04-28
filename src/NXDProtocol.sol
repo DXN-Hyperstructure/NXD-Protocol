@@ -85,6 +85,7 @@ contract NXDProtocol {
     mapping(address => uint256) public referrerRewards;
     // for ui purposes
     mapping(address => uint256) public userTotalMintedNoBonus;
+    mapping(address => uint256) public userTotalBonus;
 
     IDBXenViews public immutable dbxenViews;
     // TWAP Oracle for DXN/WETH pair
@@ -249,7 +250,10 @@ contract NXDProtocol {
         }
 
         referrerRewards[referrer] += referrerAmount;
+        userTotalBonus[referrer] += referrerAmount;
+
         referredRewards[msg.sender] += userBonusAmount;
+        userTotalBonus[msg.sender] += userBonusAmount;
 
         totalUnclaimedReferralRewards += referrerAmount + userBonusAmount;
 
