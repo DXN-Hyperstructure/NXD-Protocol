@@ -11,6 +11,9 @@ import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 contract QDistributor {
     error GotNothing();
+    error NotGovernance();
+    error FailedToSend();
+    error SumNot10000();
 
     event Received(
         address from, uint256 ethAmount, uint256 amountToVault, uint256 amountToProtocol, uint256 amountToLP
@@ -24,8 +27,8 @@ contract QDistributor {
     event UpdatedGovernance(address governance);
 
     uint256 public constant PERCENTAGE_DIVISOR = 10000;
-    address public nxdStakingVault = 0xa1B56E42137D06280E34B3E1352d80Ac3BECAF79;
-    address public nxdProtocol = 0xE05430D42842C7B757E5633D19ca65350E01aE11;
+    address public constant nxdStakingVault = 0xa1B56E42137D06280E34B3E1352d80Ac3BECAF79;
+    address public constant nxdProtocol = 0xE05430D42842C7B757E5633D19ca65350E01aE11;
 
     uint256 public vaultPercentage;
     uint256 public protocolPercentage;
@@ -37,9 +40,7 @@ contract QDistributor {
 
     address public governance;
 
-    ISwapRouter public UNISWAP_V3_ROUTER = block.chainid == 11155111
-        ? ISwapRouter(payable(0x3a71158eb1f7ec993510d4628402062CD919B665))
-        : ISwapRouter(payable(0xE592427A0AEce92De3Edee1F18E0157C05861564));
+    ISwapRouter public constant UNISWAP_V3_ROUTER = ISwapRouter(payable(0xE592427A0AEce92De3Edee1F18E0157C05861564));
 
     address public constant DXN_WETH_POOL = 0x7F808fD904FFA3eb6A6F259e6965Fb1466A05372;
     address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
@@ -47,11 +48,12 @@ contract QDistributor {
     IERC20 public constant dxn = IERC20(0x80f0C1c49891dcFDD40b6e0F960F84E6042bcB6F);
     IERC20 public constant nxd = IERC20(0x70536D44820fE3ddd4A2e3eEdbC937b8B9D566C7);
 
-    IUniswapV2Router02 public UNISWAP_V2_ROUTER = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+    IUniswapV2Router02 public constant UNISWAP_V2_ROUTER =
+        IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
     IV3Oracle public constant v3Oracle = IV3Oracle(0x21c6e0427fb2bA0E827253f48241aAbDd8051eAa);
-    IUniswapV2Pair nxdDXNPair = IUniswapV2Pair(0x98134CDE70ff7280bb4b9f4eBa2154009f2C13aC);
-    IV2Oracle public v2Oracle = IV2Oracle(0x14D558267A97c7a61554d7F7b23a594781E04495);
+    IUniswapV2Pair constant nxdDXNPair = IUniswapV2Pair(0x98134CDE70ff7280bb4b9f4eBa2154009f2C13aC);
+    IV2Oracle public constant v2Oracle = IV2Oracle(0x14D558267A97c7a61554d7F7b23a594781E04495);
 
     uint256 public maxSlippageForETHDXNSwap = 2500; // 25%
     uint256 public maxSlippageForDXNNXDSwap = 2500; // 25%
@@ -60,7 +62,9 @@ contract QDistributor {
 
     constructor(uint256 _vaultPercentage, uint256 _protocolPercentage, uint256 _lpPercentage, address _lpGateway) {
         governance = msg.sender;
-        require(_vaultPercentage + _protocolPercentage + _lpPercentage == PERCENTAGE_DIVISOR, "Invalid percentages");
+        if (_vaultPercentage + _protocolPercentage + _lpPercentage != PERCENTAGE_DIVISOR) {
+            revert SumNot10000();
+        }
         vaultPercentage = _vaultPercentage;
         protocolPercentage = _protocolPercentage;
         lpPercentage = _lpPercentage;
@@ -68,20 +72,26 @@ contract QDistributor {
     }
 
     function setLPGateway(address _lpGateway) public {
-        require(msg.sender == governance, "Only governance can set LP Gateway");
+        if (msg.sender != governance) {
+            revert NotGovernance();
+        }
         lpGateway = ILPGateway(_lpGateway);
         emit UpdatedLPGateway(_lpGateway);
     }
 
     function setMaxSlippageForSwap(uint256 _maxSlippageForETHDXNSwap, uint256 _maxSlippageForDXNNXDSwap) public {
-        require(msg.sender == governance, "Only governance can set max slippage for swap");
+        if (msg.sender != governance) {
+            revert NotGovernance();
+        }
         maxSlippageForETHDXNSwap = _maxSlippageForETHDXNSwap;
         maxSlippageForDXNNXDSwap = _maxSlippageForDXNNXDSwap;
         emit UpdatedMaxSlippage(_maxSlippageForETHDXNSwap, _maxSlippageForDXNNXDSwap);
     }
 
     function setGovernance(address _governance) public {
-        require(msg.sender == governance, "Only governance can set governance");
+        if (msg.sender != governance) {
+            revert NotGovernance();
+        }
         governance = _governance;
         emit UpdatedGovernance(_governance);
     }
@@ -90,7 +100,9 @@ contract QDistributor {
         uint256 amount = pendingAmountVault;
         pendingAmountVault = 0;
         (bool sent,) = nxdStakingVault.call{value: amount}("");
-        require(sent, "Failed to send to vault");
+        if (!sent) {
+            revert FailedToSend();
+        }
         emit SentToVault(amount);
     }
 
@@ -100,7 +112,9 @@ contract QDistributor {
         }
         pendingAmountProtocol -= amount;
         (bool sent,) = nxdProtocol.call{value: amount}("");
-        require(sent, "Failed to send to protocol");
+        if (!sent) {
+            revert FailedToSend();
+        }
         emit SentToProtocol(amount);
     }
 
@@ -156,8 +170,12 @@ contract QDistributor {
     }
 
     function setPercentages(uint256 _vaultPercentage, uint256 _protocolPercentage, uint256 _lpPercentage) public {
-        require(msg.sender == governance, "Only governance can set percentages");
-        require(_vaultPercentage + _protocolPercentage + _lpPercentage == PERCENTAGE_DIVISOR, "Invalid percentages");
+        if (msg.sender != governance) {
+            revert NotGovernance();
+        }
+        if (_vaultPercentage + _protocolPercentage + _lpPercentage != PERCENTAGE_DIVISOR) {
+            revert SumNot10000();
+        }
         vaultPercentage = _vaultPercentage;
         protocolPercentage = _protocolPercentage;
         lpPercentage = _lpPercentage;
