@@ -48,7 +48,7 @@ contract LPGatewayTest is Test {
         dxn.approve(address(lpGateway), amountDXN);
 
         (uint256 amountA, uint256 amountB, uint256 liquidity) =
-            lpGateway.addLiquidity(amountNXD, amountDXN, amountNXDMin, amountDXNMin, to, deadline);
+            lpGateway.addLiquidity(address(dxn), amountNXD, amountDXN, amountNXDMin, amountDXNMin, to, deadline);
 
         if (amountNXD > amountA) {
             assertEq(nxd.balanceOf(bob), amountNXD - amountA, "NXD balance mismatch");
@@ -76,7 +76,7 @@ contract LPGatewayTest is Test {
         dxn.approve(address(lpGateway), amountDXN);
 
         (uint256 amountA, uint256 amountB, uint256 liquidity) =
-            lpGateway.addLiquidity(amountNXD, amountDXN, amountNXDMin, amountDXNMin, to, deadline);
+            lpGateway.addLiquidity(address(dxn), amountNXD, amountDXN, amountNXDMin, amountDXNMin, to, deadline);
 
         if (amountNXD > amountA) {
             assertEq(nxd.balanceOf(bob), amountNXD - amountA, "NXD balance mismatch");
@@ -104,7 +104,7 @@ contract LPGatewayTest is Test {
         dxn.approve(address(lpGateway), amountDXN);
 
         (uint256 amountA, uint256 amountB, uint256 liquidity) =
-            lpGateway.addLiquidity(amountNXD, amountDXN, amountNXDMin, amountDXNMin, to, deadline);
+            lpGateway.addLiquidity(address(dxn), amountNXD, amountDXN, amountNXDMin, amountDXNMin, to, deadline);
 
         uint256 dxnBalanceBeforeRemove = dxn.balanceOf(bob);
         uint256 nxdBalanceBeforeRemove = nxd.balanceOf(bob);
@@ -112,7 +112,7 @@ contract LPGatewayTest is Test {
         dxnNXDPair.approve(address(lpGateway), liquidity);
 
         (uint256 amountNXDRemoved, uint256 amountDXNRemoved) =
-            lpGateway.removeLiquidity(liquidity, amountNXDMin, amountDXNMin, to, deadline);
+            lpGateway.removeLiquidity(address(dxn), liquidity, amountNXDMin, amountDXNMin, to, deadline);
 
         assertEq(dxnNXDPair.balanceOf(bob), 0, "Liquidity mismatch");
         assertEq(dxn.balanceOf(bob) - dxnBalanceBeforeRemove, amountDXNRemoved, "DXN balance mismatch");
