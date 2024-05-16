@@ -13,9 +13,9 @@ import "@uniswap/v3-periphery/contracts/interfaces/IQuoterV2.sol";
 
 contract QDistributorTest is Test {
     QDistributor public qDistributor;
-    uint256 public vaultPercentage = 2000;
-    uint256 public protocolPercentage = 0;
-    uint256 public lpPercentage = 8000;
+    uint256 public vaultPercentage = 3334;
+    uint256 public protocolPercentage = 3333;
+    uint256 public lpPercentage = 3333;
 
     address public governance = address(bob);
     uint256 mainnetFork;
@@ -45,7 +45,7 @@ contract QDistributorTest is Test {
         vm.prank(nxd.governance());
         nxd.updateTaxWhitelist(address(lpGateway), true, true);
         vm.startPrank(governance);
-        qDistributor = new QDistributor(vaultPercentage, protocolPercentage, lpPercentage, address(lpGateway));
+        qDistributor = new QDistributor(address(lpGateway));
         nxdStakingVault = INXDStakingVault(qDistributor.nxdStakingVault());
         nxdProtocol = INXDProtocol(qDistributor.nxdProtocol());
         v3Oracle = IV3Oracle(qDistributor.v3Oracle());

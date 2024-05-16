@@ -6,7 +6,6 @@ import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IUniswapV2Router02.sol";
 import "./interfaces/IV2Oracle.sol";
 import "./interfaces/ILPGateway.sol";
-import "forge-std/console.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 contract QDistributor {
@@ -30,9 +29,9 @@ contract QDistributor {
     address public constant nxdStakingVault = 0xa1B56E42137D06280E34B3E1352d80Ac3BECAF79;
     address public constant nxdProtocol = 0xE05430D42842C7B757E5633D19ca65350E01aE11;
 
-    uint256 public vaultPercentage;
-    uint256 public protocolPercentage;
-    uint256 public lpPercentage;
+    uint256 public vaultPercentage = 3334;
+    uint256 public protocolPercentage = 3333;
+    uint256 public lpPercentage = 3333;
 
     uint256 public pendingAmountVault;
     uint256 public pendingAmountProtocol;
@@ -60,14 +59,8 @@ contract QDistributor {
 
     ILPGateway public lpGateway;
 
-    constructor(uint256 _vaultPercentage, uint256 _protocolPercentage, uint256 _lpPercentage, address _lpGateway) {
+    constructor(address _lpGateway) {
         governance = msg.sender;
-        if (_vaultPercentage + _protocolPercentage + _lpPercentage != PERCENTAGE_DIVISOR) {
-            revert SumNot10000();
-        }
-        vaultPercentage = _vaultPercentage;
-        protocolPercentage = _protocolPercentage;
-        lpPercentage = _lpPercentage;
         lpGateway = ILPGateway(_lpGateway);
     }
 
@@ -188,11 +181,6 @@ contract QDistributor {
         uint256 amountToVault = (amount * vaultPercentage) / PERCENTAGE_DIVISOR;
         uint256 amountToProtocol = (amount * protocolPercentage) / PERCENTAGE_DIVISOR;
         uint256 amountToLP = (amount * lpPercentage) / PERCENTAGE_DIVISOR;
-
-        console.log("amountToVault = ", amountToVault);
-        console.log("amountToProtocol = ", amountToProtocol);
-        console.log("amountToLP = ", amountToLP);
-        console.log("amountToVault + amountToProtocol + amountToLP = ", amountToVault + amountToProtocol + amountToLP);
 
         pendingAmountVault += amountToVault;
         pendingAmountProtocol += amountToProtocol;
