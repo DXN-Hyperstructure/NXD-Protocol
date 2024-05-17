@@ -62,11 +62,11 @@ contract QDistributorTest is Test {
     function testPendingAmounts() public {
         console.log("bob = ", bob);
         vm.startPrank(bob);
-        vm.deal(bob, 1000 ether);
-        payable(qDistributor).call{value: 1000 ether}("");
-        uint256 expectedVaultAmount = 200 ether;
-        uint256 expectedProtocolAmount = 0;
-        uint256 expectedLpAmount = 800 ether;
+        vm.deal(bob, 10000 ether);
+        payable(qDistributor).call{value: 10000 ether}("");
+        uint256 expectedVaultAmount = 3334 ether;
+        uint256 expectedProtocolAmount = 3333 ether;
+        uint256 expectedLpAmount = 3333 ether;
 
         assertEq(qDistributor.pendingAmountVault(), expectedVaultAmount);
         assertEq(qDistributor.pendingAmountProtocol(), expectedProtocolAmount);
@@ -94,9 +94,7 @@ contract QDistributorTest is Test {
         vm.startPrank(bob);
         vm.deal(bob, 1000 ether);
         payable(qDistributor).call{value: 1000 ether}("");
-        uint256 expectedVaultAmount = 200 ether;
-        uint256 expectedProtocolAmount = 0;
-        uint256 expectedLpAmount = 800 ether;
+        uint256 expectedVaultAmount = 333400000000000000000;
 
         vm.startPrank(bob);
         uint256 nxdStakingVaultBalanceBefore = address(nxdStakingVault).balance;
@@ -107,8 +105,8 @@ contract QDistributorTest is Test {
         uint256 pendingRewardsAfter = nxdStakingVault.pendingRewards();
         console.log("pendingRewardsAfter = ", pendingRewardsAfter);
 
-        assertEq(address(nxdStakingVault).balance - nxdStakingVaultBalanceBefore, expectedVaultAmount);
-        assertEq(pendingRewardsAfter - pendingRewardsBefore, expectedVaultAmount);
+        assertEq(address(nxdStakingVault).balance - nxdStakingVaultBalanceBefore, expectedVaultAmount, "Vault amount");
+        assertEq(pendingRewardsAfter - pendingRewardsBefore, expectedVaultAmount, "Pending rewards");
     }
 
     function testFuzz_SendToVault(uint256 amountToDistribute) public {
@@ -133,19 +131,31 @@ contract QDistributorTest is Test {
         assertEq(pendingRewardsAfter - pendingRewardsBefore, expectedVaultAmount);
     }
 
+    function testSetPercentages() public {
+        uint256 _vaultPercentage = 4000;
+        uint256 _protocolPercentage = 4000;
+        uint256 _lpPercentage = 2000;
+        vm.prank(governance);
+        qDistributor.setPercentages(_vaultPercentage, _protocolPercentage, _lpPercentage);
+
+        assertEq(qDistributor.vaultPercentage(), _vaultPercentage);
+        assertEq(qDistributor.protocolPercentage(), _protocolPercentage);
+        assertEq(qDistributor.lpPercentage(), _lpPercentage);
+    }
+
     function testSendToProtocol() public {
         vm.deal(bob, 1000 ether);
         uint256 _protocolPercentage = 4000;
 
         vm.prank(governance);
         qDistributor.setPercentages(4000, _protocolPercentage, 2000);
+
         uint256 ethAmt = 0.5 ether;
+        vm.startPrank(bob);
         payable(qDistributor).call{value: ethAmt}("");
-        uint256 expectedProtocolAmount = (ethAmt * 4000) / 10000;
+        uint256 expectedProtocolAmount = (ethAmt * _protocolPercentage) / 10000;
 
         uint256 expectedETHToStakingVault = (expectedProtocolAmount * 1500) / 10000; // 15%
-
-        vm.startPrank(bob);
 
         uint256 totalDXNBurnedBefore = nxdProtocol.totalDXNBurned();
         uint256 pendingDXNToStakeBefore = nxdProtocol.pendingDXNToStake();

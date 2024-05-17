@@ -156,7 +156,13 @@ contract QDistributor {
         nxd.approve(address(lpGateway), nxd.balanceOf(address(this)));
 
         lpGateway.addLiquidity(
-            nxd.balanceOf(address(this)), dxn.balanceOf(address(this)), 0, 0, address(this), block.timestamp
+            address(dxn),
+            nxd.balanceOf(address(this)),
+            dxn.balanceOf(address(this)),
+            0,
+            0,
+            address(this),
+            block.timestamp
         );
 
         emit AddedLP(amount);
